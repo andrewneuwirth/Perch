@@ -129,7 +129,7 @@ final class AppSettings {
     /// Whether hovering over a note/folder row shows a floating read-only
     /// preview on the opposite side of the panel. Default on — opt-out via
     /// the General settings tab.
-    var hoverPeekEnabled: Bool = true {
+    var hoverPeekEnabled: Bool = false {
         didSet {
             UserDefaults.standard.set(hoverPeekEnabled, forKey: "hoverPeekEnabled")
             NotificationCenter.default.post(name: .previewSettingsChanged, object: nil)
