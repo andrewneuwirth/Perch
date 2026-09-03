@@ -155,6 +155,11 @@ final class SidePanelController: NSWindowController {
                 if let fr = self?.window?.firstResponder as? NSTextView, fr.isFieldEditor {
                     return event
                 }
+                // Create modal takes priority: close it instead of hiding the panel.
+                if let store = self?.noteStore, store.isCreateModalPresented {
+                    store.isCreateModalPresented = false
+                    return nil
+                }
                 // Selection takes priority over panel-hide: clear it instead of hiding.
                 if let store = self?.noteStore, !store.selection.isEmpty {
                     store.clearSelection()

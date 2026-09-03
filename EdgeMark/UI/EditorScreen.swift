@@ -103,12 +103,18 @@ struct EditorScreen: View {
 
                     Spacer()
 
-                    PinButton()
-
-                    CopyMenuButton(note: note)
-
-                    DeleteIconButton {
-                        showDeleteConfirm = true
+                    HeaderMenuButton(help: l10n["header.more"]) {
+                        PinMenuItem()
+                        Divider()
+                        Menu(l10n["editor.copyNote"]) {
+                            CopyMenuItems(note: note)
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label(l10n["editor.deleteNote"], systemImage: "trash")
+                        }
                     }
                 }
 
@@ -138,55 +144,32 @@ struct EditorScreen: View {
 
 /// Copy icon that opens a menu with plain text and Markdown copy options.
 /// If text is selected in the editor, copies the selection; otherwise copies the whole document.
-private struct CopyMenuButton: View {
+struct CopyMenuItems: View {
     let note: Note
-
-    @State private var isHovered = false
 
     var body: some View {
         let l10n = L10n.shared
-        Menu {
-            Button(l10n["common.copyPlainText"]) {
-                let selected = Self.getSelectedText()
-                let source = selected.isEmpty ? note.content : selected
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(Note.plainText(from: source), forType: .string)
-            }
-            Button(l10n["common.copyMarkdown"]) {
-                let selected = Self.getSelectedText()
-                let text = selected.isEmpty ? note.content : selected
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-            }
-            Button(l10n["common.copyRTF"]) {
-                let selected = Self.getSelectedText()
-                let source = selected.isEmpty ? note.content : selected
-                let pb = NSPasteboard.general
-                pb.clearContents()
-                if let rtf = Note.rtfData(from: source) {
-                    pb.setData(rtf, forType: .rtf)
-                } else {
-                    pb.setString(Note.plainText(from: source), forType: .string)
-                }
-            }
-        } label: {
-            Image(systemName: "doc.on.doc")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(isHovered ? .primary : .secondary)
-                .frame(width: 28, height: 28)
-                .background {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(.primary.opacity(isHovered ? 0.1 : 0))
-                }
-                .contentShape(Rectangle())
+        Button(l10n["common.copyPlainText"]) {
+            let selected = Self.getSelectedText()
+            let source = selected.isEmpty ? note.content : selected
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(Note.plainText(from: source), forType: .string)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(l10n["editor.copyNote"])
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
+        Button(l10n["common.copyMarkdown"]) {
+            let selected = Self.getSelectedText()
+            let text = selected.isEmpty ? note.content : selected
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
+        Button(l10n["common.copyRTF"]) {
+            let selected = Self.getSelectedText()
+            let source = selected.isEmpty ? note.content : selected
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            if let rtf = Note.rtfData(from: source) {
+                pb.setData(rtf, forType: .rtf)
+            } else {
+                pb.setString(Note.plainText(from: source), forType: .string)
             }
         }
     }
@@ -196,6 +179,25 @@ private struct CopyMenuButton: View {
               tv.selectedRange().length > 0
         else { return "" }
         return (tv.string as NSString).substring(with: tv.selectedRange())
+    }
+}
+
+/// Pin / Unpin entry for header menus. Reads live pin state so the label stays correct.
+struct PinMenuItem: View {
+    @State private var isPinned = ShortcutSettings.shared.isPanelPinned
+
+    var body: some View {
+        Button {
+            ShortcutSettings.shared.isPanelPinned.toggle()
+        } label: {
+            Label(
+                isPinned ? L10n.shared["common.unpin"] : L10n.shared["common.pin"],
+                systemImage: isPinned ? "pin.slash" : "pin",
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .panelPinStateChanged)) { _ in
+            isPinned = ShortcutSettings.shared.isPanelPinned
+        }
     }
 }
 

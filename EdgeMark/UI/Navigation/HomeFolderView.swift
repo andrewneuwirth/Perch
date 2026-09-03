@@ -108,13 +108,6 @@ struct HomeFolderView: View {
             header
         } content: {
             VStack(spacing: 0) {
-                if noteStore.showFavorites, !isSearching {
-                    FavoritesSectionView()
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    Divider()
-                        .padding(.horizontal, 12)
-                }
-
                 ZStack {
                     folderList
                         .opacity(isSearching ? 0 : 1)
@@ -185,15 +178,11 @@ struct HomeFolderView: View {
             .allowsHitTesting(isSearching)
 
             // Title bar
-            HStack {
+            HStack(spacing: 6) {
                 Text(l10n["home.title"])
-                    .font(.title2.bold())
+                    .font(.system(.title2, design: .rounded).weight(.bold))
 
                 Spacer()
-
-                FavoritesButton()
-
-                PinButton()
 
                 HeaderIconButton(
                     systemName: "magnifyingglass",
@@ -203,26 +192,7 @@ struct HomeFolderView: View {
                     isSearchFieldFocused = true
                 }
 
-                HeaderIconButton(
-                    systemName: "folder.badge.plus",
-                    help: l10n["common.newFolder"],
-                ) {
-                    startCreatingFolder()
-                }
-
-                HeaderIconButton(
-                    systemName: "checklist",
-                    help: l10n["common.newChecklist"],
-                ) {
-                    createRootChecklist()
-                }
-
-                HeaderIconButton(
-                    systemName: "square.and.pencil",
-                    help: l10n["common.newNote"],
-                ) {
-                    createRootNote()
-                }
+                AddButton()
             }
             .opacity(isSearching ? 0 : 1)
             .allowsHitTesting(!isSearching)
@@ -235,6 +205,13 @@ struct HomeFolderView: View {
         GeometryReader { geo in
             ScrollView {
                 VStack(spacing: 0) {
+                    LinksSectionView()
+                        .padding(.top, 2)
+
+                    Divider()
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+
                     ForEach(sortedFolders) { folder in
                         folderRowWithContextMenu(folder: folder)
                     }
@@ -729,42 +706,31 @@ struct FolderRowView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 10) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "folder.fill")
-                    .font(.title3)
-                    .foregroundStyle(color?.color ?? Color.accentColor)
-
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.background)
-                        .padding(.horizontal, 3)
-                        .padding(.vertical, 0.5)
-                        .background(.primary.opacity(0.8), in: Capsule())
-                        .offset(x: 4, y: -3)
-                }
-            }
-            .frame(width: iconWidth)
+        HStack(spacing: 12) {
+            RowIconTile(systemName: "folder.fill", tint: color?.color ?? Color.accentColor)
 
             Text(name)
-                .font(.body)
+                .font(.body.weight(.medium))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
 
             Spacer()
 
-            if let date {
-                Text(date.homeDisplayFormat)
-                    .font(.caption)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.tertiary)
             }
+
+            Image(systemName: "chevron.right")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.quaternary)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
         .background {
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(rowBackground)
         }
         .padding(.horizontal, 8)
@@ -796,11 +762,11 @@ struct NoteRowView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: note.kind == .checklist ? "checklist" : "doc.text")
-                .font(.title3)
-                .foregroundStyle(note.kind == .checklist ? Color.accentColor : .secondary)
-                .frame(width: iconWidth)
+        HStack(spacing: 12) {
+            RowIconTile(
+                systemName: note.kind == .checklist ? "checklist" : "doc.text",
+                tint: note.kind == .checklist ? Color.accentColor : Color.secondary,
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
@@ -828,10 +794,10 @@ struct NoteRowView: View {
                 }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
         .background {
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(rowBackground)
         }
         .padding(.horizontal, 8)
@@ -848,5 +814,19 @@ struct NoteRowView: View {
             return Color.accentColor.opacity(isHovered ? 0.28 : 0.20)
         }
         return Color.primary.opacity(isHovered ? 0.06 : 0)
+    }
+}
+
+/// Small tinted square behind row icons so folders, notes, and checklists share one visual grammar.
+struct RowIconTile: View {
+    let systemName: String
+    let tint: Color
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 26, height: 26)
+            .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }

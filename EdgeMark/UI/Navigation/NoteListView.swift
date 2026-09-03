@@ -61,8 +61,6 @@ struct NoteListView: View {
 
                 Spacer()
 
-                PinButton()
-
                 HeaderIconButton(
                     systemName: "magnifyingglass",
                     help: l10n["common.search"],
@@ -72,26 +70,7 @@ struct NoteListView: View {
                     noteStore.navigateToHome()
                 }
 
-                HeaderIconButton(
-                    systemName: "folder.badge.plus",
-                    help: l10n["common.newFolder"],
-                ) {
-                    startCreatingFolder()
-                }
-
-                HeaderIconButton(
-                    systemName: "checklist",
-                    help: l10n["common.newChecklist"],
-                ) {
-                    createChecklist()
-                }
-
-                HeaderIconButton(
-                    systemName: "square.and.pencil",
-                    help: l10n["common.newNote"],
-                ) {
-                    createNote()
-                }
+                AddButton()
             }
             .overlay {
                 HStack(spacing: 4) {
@@ -107,7 +86,7 @@ struct NoteListView: View {
                         .truncationMode(.middle)
                 }
                 .padding(.leading, 40)
-                .padding(.trailing, 75)
+                .padding(.trailing, 70)
                 .help(folderPath)
             }
         } content: {

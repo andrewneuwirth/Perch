@@ -13,8 +13,8 @@ final class NoteStore {
     var selectedFolder: Folder?
     var selectedNote: Note?
     var showTrash = false
-    /// Whether the Favorites section is expanded on the Home screen. Not persisted.
-    var showFavorites = false
+    /// Whether the create modal (New note / checklist / folder / link) is showing.
+    var isCreateModalPresented = false
 
     // MARK: - List Selection (multi-select)
 

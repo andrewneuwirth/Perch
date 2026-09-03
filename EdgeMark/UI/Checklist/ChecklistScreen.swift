@@ -117,19 +117,22 @@ struct ChecklistScreen: View {
 
                     Spacer()
 
-                    PinButton()
-
-                    HeaderIconButton(systemName: "trash.slash", help: l10n["checklist.clearCompleted"]) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            doc.clearCompleted()
+                    HeaderMenuButton(help: l10n["header.more"]) {
+                        PinMenuItem()
+                        Divider()
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) { doc.clearCompleted() }
+                            commit()
+                        } label: {
+                            Label(l10n["checklist.clearCompleted"], systemImage: "trash.slash")
                         }
-                        commit()
-                    }
-                    .disabled(doc.doneCount == 0)
-                    .opacity(doc.doneCount == 0 ? 0.4 : 1)
-
-                    DeleteIconButton {
-                        showDeleteConfirm = true
+                        .disabled(doc.doneCount == 0)
+                        Divider()
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label(l10n["editor.deleteNote"], systemImage: "trash")
+                        }
                     }
                 }
 

@@ -74,6 +74,12 @@ struct ContentView: View {
                 TrashView()
                     .transition(trashTransition)
             }
+
+            if noteStore.isCreateModalPresented {
+                CreateItemModal()
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
         }
         .clipped()
         // Dismiss any open hover/Quick-Look preview when the user navigates

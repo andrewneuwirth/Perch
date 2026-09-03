@@ -15,6 +15,7 @@ struct ContentFooterBar: View {
                 showSortMenu()
             }
             Spacer()
+            PinButton()
             HeaderIconButton(systemName: "gearshape", help: l10n["menu.settings"]) {
                 showSettingsMenu()
             }

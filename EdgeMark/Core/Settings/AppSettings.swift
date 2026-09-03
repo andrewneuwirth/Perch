@@ -139,6 +139,11 @@ final class AppSettings {
     /// Whether pressing Space on a single selected row shows the preview
     /// instantly (Quick Look behavior). Independent from hover-to-peek.
     /// Default on.
+    /// Whether the Links section on Home is collapsed. Remembered across launches.
+    var linksCollapsed: Bool = false {
+        didSet { UserDefaults.standard.set(linksCollapsed, forKey: "linksCollapsed") }
+    }
+
     var spaceToPreviewEnabled: Bool = true {
         didSet {
             UserDefaults.standard.set(spaceToPreviewEnabled, forKey: "spaceToPreviewEnabled")
@@ -219,6 +224,9 @@ final class AppSettings {
         }
         if let raw = UserDefaults.standard.object(forKey: "hoverPeekEnabled") as? Bool {
             hoverPeekEnabled = raw
+        }
+        if let raw = UserDefaults.standard.object(forKey: "linksCollapsed") as? Bool {
+            linksCollapsed = raw
         }
         if let raw = UserDefaults.standard.object(forKey: "spaceToPreviewEnabled") as? Bool {
             spaceToPreviewEnabled = raw
