@@ -6,9 +6,9 @@ import SwiftUI
 /// Modelled on OpenWhispr's dictation pill: non-activating so it never steals focus.
 final class FloatingButtonController {
     /// Height reserved at the bottom of the screen so the panel sits above the button.
-    static let reservedHeight: CGFloat = 60
-    static let windowSize: CGFloat = 60
-    static let buttonSize: CGFloat = 44
+    static let reservedHeight: CGFloat = 52
+    static let windowSize: CGFloat = 52
+    static let buttonSize: CGFloat = 36
 
     private let panel: NSPanel
     private let state = FloatingButtonState()
@@ -85,7 +85,7 @@ final class FloatingButtonController {
     }
 
     /// Dock the window in the bottom corner of the main screen, above wherever the Dock
-    /// could appear. The 44pt button is centred in the 60pt window (8pt side margin).
+    /// could appear. The 36pt button is centred in the 52pt window (8pt side margin).
     func reposition() {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let vf = screen.visibleFrame
@@ -161,7 +161,7 @@ struct FloatingButtonView: View {
                 .shadow(color: .black.opacity(0.25), radius: isHovered ? 8 : 5, y: 2)
 
             Image(systemName: symbol)
-                .font(.system(size: 17, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(state.isPanelShown ? Color.accentColor : .primary)
                 .symbolRenderingMode(.hierarchical)
         }
