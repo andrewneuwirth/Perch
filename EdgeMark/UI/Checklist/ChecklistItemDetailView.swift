@@ -232,6 +232,7 @@ struct LinkRowView: View {
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .opacity(isHovered ? 1 : 0)
+                RowTrashButton(visible: isHovered, action: onDelete)
             }
         }
         .padding(.horizontal, 10)

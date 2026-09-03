@@ -196,6 +196,11 @@ final class SidePanelController: NSWindowController {
                 return noteStore.openSelectedItem() ? nil : event
             case 49: // Space — Quick Look preview
                 return handleSpacePeek() ? nil : event
+            case 51, 117: // Delete / forward delete — trash the selection
+                guard !noteStore.selection.isEmpty, !noteStore.isCreateModalPresented else { return event }
+                peekCoordinator.dismissNow()
+                noteStore.trashSelection()
+                return nil
             default:
                 return event
             }
@@ -299,6 +304,15 @@ final class SidePanelController: NSWindowController {
             guard let self, let id = notification.object as? UUID,
                   let note = noteStore.notes.first(where: { $0.id == id }) else { return }
             noteStore.toggleDone(note)
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .noteTrashRequested, object: nil, queue: .main,
+        ) { [weak self] notification in
+            guard let self, let id = notification.object as? UUID,
+                  let note = noteStore.notes.first(where: { $0.id == id }) else { return }
+            peekCoordinator.dismissNow()
+            noteStore.trashNote(note)
         }
     }
 

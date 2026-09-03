@@ -194,6 +194,10 @@ struct NoteListView: View {
                 iconWidth: iconWidth,
                 color: folder.color,
                 isSelected: noteStore.isSelected(id),
+                onTrash: {
+                    deletingFolderName = folder.name
+                    showDeleteFolderConfirm = true
+                },
             )
             .rowClick(
                 onSingle: { mods in
@@ -205,6 +209,7 @@ struct NoteListView: View {
                     )
                 },
                 onDouble: { noteStore.navigateToSubfolder(folder) },
+                trailingPassThrough: RowTrashButton.zoneWidth,
             )
             .reportRowFrame(id)
             .hoverableRow(id: id, content: .folder(folder, noteStore.subfolders(of: folder), noteStore.recentNotes(in: folder)))
@@ -242,6 +247,7 @@ struct NoteListView: View {
                 iconWidth: iconWidth,
                 isSelected: noteStore.isSelected(id),
                 onToggleDone: { noteStore.toggleDone(note) },
+                onTrash: { noteStore.trashNote(note) },
             )
             .rowClick(
                 onSingle: { mods in
@@ -254,6 +260,7 @@ struct NoteListView: View {
                 },
                 onDouble: { noteStore.openNote(note) },
                 leadingPassThrough: NoteRowView.markerZoneWidth,
+                trailingPassThrough: RowTrashButton.zoneWidth,
             )
             .reportRowFrame(id)
             .hoverableRow(id: id, content: .note(note))

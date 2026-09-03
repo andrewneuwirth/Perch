@@ -309,6 +309,10 @@ struct HomeFolderView: View {
                 iconWidth: iconWidth,
                 color: folder.color,
                 isSelected: noteStore.isSelected(id),
+                onTrash: {
+                    deletingFolderName = folder.name
+                    showDeleteFolderConfirm = true
+                },
             )
             .rowClick(
                 onSingle: { mods in
@@ -320,6 +324,7 @@ struct HomeFolderView: View {
                     )
                 },
                 onDouble: { noteStore.navigateToFolder(folder) },
+                trailingPassThrough: RowTrashButton.zoneWidth,
             )
             .reportRowFrame(id)
             .hoverableRow(id: id, content: .folder(folder, noteStore.subfolders(of: folder), noteStore.recentNotes(in: folder)))
@@ -358,6 +363,7 @@ struct HomeFolderView: View {
                 iconWidth: iconWidth,
                 isSelected: noteStore.isSelected(id),
                 onToggleDone: { noteStore.toggleDone(note) },
+                onTrash: { noteStore.trashNote(note) },
             )
             .rowClick(
                 onSingle: { mods in
@@ -370,6 +376,7 @@ struct HomeFolderView: View {
                 },
                 onDouble: { noteStore.openNote(note) },
                 leadingPassThrough: NoteRowView.markerZoneWidth,
+                trailingPassThrough: RowTrashButton.zoneWidth,
             )
             .reportRowFrame(id)
             .hoverableRow(id: id, content: .note(note))
@@ -704,6 +711,7 @@ struct FolderRowView: View {
     let iconWidth: CGFloat
     var color: TagColor?
     var isSelected: Bool = false
+    var onTrash: (() -> Void)? = nil
 
     @State private var isHovered = false
 
@@ -725,9 +733,13 @@ struct FolderRowView: View {
                     .foregroundStyle(.tertiary)
             }
 
-            Image(systemName: "chevron.right")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.quaternary)
+            if let onTrash {
+                RowTrashButton(visible: isHovered, action: onTrash)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.quaternary)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
@@ -761,6 +773,7 @@ struct NoteRowView: View {
     let iconWidth: CGFloat
     var isSelected: Bool = false
     var onToggleDone: (() -> Void)? = nil
+    var onTrash: (() -> Void)? = nil
 
     /// Width of the leading check-marker area; row clicks pass through here.
     static let markerZoneWidth: CGFloat = 44
@@ -791,6 +804,10 @@ struct NoteRowView: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize()
+
+                    if let onTrash {
+                        RowTrashButton(visible: isHovered, action: onTrash)
+                    }
                 }
 
                 if note.kind == .checklist, let p = note.checklistProgress {

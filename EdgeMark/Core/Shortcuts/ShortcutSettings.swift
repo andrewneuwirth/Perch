@@ -467,6 +467,8 @@ extension Notification.Name {
     static let panelDockRequested = Notification.Name("panelDockRequested")
     /// A view without store access (peek window) asks to toggle a note's done state. object = note UUID.
     static let noteToggleDoneRequested = Notification.Name("noteToggleDoneRequested")
+    /// Peek window asks to trash a note. object = note UUID.
+    static let noteTrashRequested = Notification.Name("noteTrashRequested")
     /// Posted by SidePanelController whenever the panel becomes shown or hidden. userInfo["shown"] = Bool.
     static let panelVisibilityChanged = Notification.Name("panelVisibilityChanged")
 }

@@ -109,10 +109,12 @@ struct RowClickModifier: ViewModifier {
     let onSingle: (NSEvent.ModifierFlags) -> Void
     let onDouble: () -> Void
     var leadingPassThrough: CGFloat = 0
+    var trailingPassThrough: CGFloat = 0
 
     func body(content: Content) -> some View {
         content.overlay {
-            RowClickOverlay(onSingle: onSingle, onDouble: onDouble, leadingPassThrough: leadingPassThrough)
+            RowClickOverlay(onSingle: onSingle, onDouble: onDouble,
+                            leadingPassThrough: leadingPassThrough, trailingPassThrough: trailingPassThrough)
         }
     }
 }
@@ -127,8 +129,10 @@ extension View {
         onSingle: @escaping (NSEvent.ModifierFlags) -> Void,
         onDouble: @escaping () -> Void,
         leadingPassThrough: CGFloat = 0,
+        trailingPassThrough: CGFloat = 0,
     ) -> some View {
-        modifier(RowClickModifier(onSingle: onSingle, onDouble: onDouble, leadingPassThrough: leadingPassThrough))
+        modifier(RowClickModifier(onSingle: onSingle, onDouble: onDouble,
+                                  leadingPassThrough: leadingPassThrough, trailingPassThrough: trailingPassThrough))
     }
 }
 
@@ -136,6 +140,7 @@ private struct RowClickOverlay: NSViewRepresentable {
     let onSingle: (NSEvent.ModifierFlags) -> Void
     let onDouble: () -> Void
     var leadingPassThrough: CGFloat = 0
+    var trailingPassThrough: CGFloat = 0
 
     func makeNSView(context _: Context) -> RowClickCatcher {
         RowClickCatcher()
@@ -145,6 +150,7 @@ private struct RowClickOverlay: NSViewRepresentable {
         nsView.onSingle = onSingle
         nsView.onDouble = onDouble
         nsView.leadingPassThrough = leadingPassThrough
+        nsView.trailingPassThrough = trailingPassThrough
     }
 
     /// Transparent NSView that intercepts only left-mouse-down (so right-clicks,
@@ -153,12 +159,16 @@ private struct RowClickOverlay: NSViewRepresentable {
         var onSingle: ((NSEvent.ModifierFlags) -> Void)?
         var onDouble: (() -> Void)?
         var leadingPassThrough: CGFloat = 0
+        var trailingPassThrough: CGFloat = 0
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             // Only intercept left-clicks; pass everything else through.
             if let event = NSApp.currentEvent, event.type == .leftMouseDown {
                 let local = convert(point, from: superview)
-                if bounds.contains(local), local.x >= bounds.minX + leadingPassThrough {
+                if bounds.contains(local),
+                   local.x >= bounds.minX + leadingPassThrough,
+                   local.x <= bounds.maxX - trailingPassThrough
+                {
                     return self
                 }
             }

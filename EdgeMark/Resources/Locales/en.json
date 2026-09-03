@@ -80,6 +80,7 @@
   "common.newNote": "New Note",
   "common.home": "Home",
   "common.trash": "Trash",
+  "common.moveToTrash": "Move to Trash",
   "common.select": "Select",
   "common.showInFinder": "Show in Finder",
   "common.moveTo": "Move to",

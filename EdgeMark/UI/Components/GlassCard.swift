@@ -65,3 +65,29 @@ extension View {
         modifier(GlassInset(cornerRadius: cornerRadius, isHovered: isHovered))
     }
 }
+
+/// Small trash control revealed on row hover. Turns red on its own hover.
+struct RowTrashButton: View {
+    let visible: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    /// Width of the trailing area rows must leave click-free so this button gets the click.
+    static let zoneWidth: CGFloat = 34
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "trash")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(isHovered ? Color.red : Color.secondary)
+                .frame(width: 24, height: 24)
+                .background(isHovered ? Color.red.opacity(0.12) : Color.glassInset, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(L10n.shared["common.moveToTrash"])
+        .opacity(visible ? 1 : 0)
+        .allowsHitTesting(visible)
+        .onHover { isHovered = $0 }
+    }
+}

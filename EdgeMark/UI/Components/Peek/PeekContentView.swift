@@ -119,6 +119,7 @@ struct PeekContentView: View {
 private struct PeekNoteRow: View {
     let note: Note
     @State private var isDone: Bool
+    @State private var isHovered = false
 
     init(note: Note) {
         self.note = note
@@ -147,6 +148,9 @@ private struct PeekNoteRow: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize()
+                    RowTrashButton(visible: isHovered) {
+                        NotificationCenter.default.post(name: .noteTrashRequested, object: note.id)
+                    }
                 }
                 if !note.previewText.isEmpty {
                     Text(note.previewText)
@@ -161,5 +165,7 @@ private struct PeekNoteRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
     }
 }
