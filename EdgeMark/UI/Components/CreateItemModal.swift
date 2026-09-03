@@ -81,11 +81,17 @@ struct CreateItemModal: View {
     @State private var kind: CreateKind = .note
     @State private var name = ""
     @State private var url = ""
+    @State private var destination: String = ""
     @State private var showError = false
     @FocusState private var nameFocused: Bool
     @FocusState private var urlFocused: Bool
 
-    private var folderName: String { noteStore.selectedFolder?.name ?? "" }
+    /// Folder the new item goes in. Starts at the current folder; editable via the Where picker.
+    private var folderName: String { destination }
+
+    private var folderChoices: [String] {
+        noteStore.folders.map(\.name).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
 
     private var canCreate: Bool {
         switch kind {
@@ -105,12 +111,6 @@ struct CreateItemModal: View {
                 HStack {
                     Text(l10n["create.title"])
                         .font(.system(.title3, design: .rounded).weight(.bold))
-                    if !folderName.isEmpty, kind != .link {
-                        Text(l10n.t("create.inFolder", folderName))
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
                     Spacer()
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
@@ -136,6 +136,29 @@ struct CreateItemModal: View {
 
                 // Fields
                 VStack(spacing: 8) {
+                    if kind != .link {
+                        HStack(spacing: 8) {
+                            Image(systemName: "folder")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 18)
+                            Text(l10n["create.where"])
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Picker("", selection: $destination) {
+                                Text(l10n["common.home"]).tag("")
+                                ForEach(folderChoices, id: \.self) { f in
+                                    Text(f).tag(f)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .fixedSize()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .glassInset(cornerRadius: 8)
+                    }
+
                     if kind == .link {
                         field(icon: "link", placeholder: l10n["create.urlPlaceholder"], text: $url, focus: $urlFocused)
                     }
@@ -182,6 +205,7 @@ struct CreateItemModal: View {
             .transition(.scale(scale: 0.96).combined(with: .opacity))
         }
         .onAppear {
+            destination = noteStore.selectedFolder?.name ?? ""
             if let pasted = FavoritesStore.pasteboardURL() {
                 url = pasted.absoluteString
             }

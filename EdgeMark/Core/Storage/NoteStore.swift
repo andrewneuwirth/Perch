@@ -344,7 +344,7 @@ final class NoteStore {
             autoPurgeExpiredTrash()
             diskFolderNames = Set((try? FileStorage.discoverFolders()) ?? [])
             refreshFolders()
-            seedDefaultChecklistIfNeeded()
+            seedDefaultClassFoldersIfNeeded()
             let noteCount = notes.count
             let trashCount = trashedNotes.count + trashedFolders.count
             Log.storage.info("[NoteStore] loaded \(noteCount) notes, \(trashCount) trashed items")
@@ -503,19 +503,23 @@ final class NoteStore {
         createNote(in: folder, kind: .checklist, baseTitle: "Checklist", content: nil)
     }
 
-    /// On the first launch with no checklists, create a "Classes" checklist seeded with
-    /// the default course groups. A UserDefaults flag prevents re-seeding after deletion.
-    private func seedDefaultChecklistIfNeeded() {
-        let flag = "didSeedDefaultChecklist"
+    /// First launch: create one folder per class so notes and checklists can be filed under them.
+    /// Also retires the earlier seeded "Classes" checklist if it was never edited.
+    private func seedDefaultClassFoldersIfNeeded() {
+        let flag = "didSeedClassFolders"
         guard !UserDefaults.standard.bool(forKey: flag) else { return }
-        guard !notes.contains(where: { $0.kind == .checklist }) else {
-            UserDefaults.standard.set(true, forKey: flag)
-            return
-        }
-        let doc = ChecklistDocument.seededClasses()
-        _ = createNote(in: "", kind: .checklist, baseTitle: doc.title, content: doc.serialize())
         UserDefaults.standard.set(true, forKey: flag)
-        Log.storage.info("[NoteStore] seeded default Classes checklist")
+
+        for name in ChecklistDocument.seededClassNames where !folders.contains(where: { $0.name == name }) {
+            createFolder(named: name, in: "")
+        }
+
+        let untouched = ChecklistDocument.seededClasses().serialize()
+        if let old = notes.first(where: { $0.kind == .checklist && $0.folder.isEmpty && $0.title == "Classes" && $0.content == untouched }) {
+            trashNote(old)
+            Log.storage.info("[NoteStore] retired untouched seeded Classes checklist")
+        }
+        Log.storage.info("[NoteStore] seeded class folders")
     }
 
     private func createNote(in folder: String, kind: NoteKind, baseTitle: String, content: String?) -> Note {
