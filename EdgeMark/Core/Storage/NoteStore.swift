@@ -121,6 +121,8 @@ final class NoteStore {
 
     func sortedNotes(_ notes: [Note], by sortBy: AppSettings.SortBy, ascending: Bool) -> [Note] {
         notes.sorted { a, b in
+            // Checked-off notes always sink below open ones.
+            if a.isDone != b.isDone { return !a.isDone }
             let result: Bool = switch sortBy {
             case .name:
                 a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
@@ -496,6 +498,23 @@ final class NoteStore {
 
     func createNote(in folder: String = "") -> Note {
         createNote(in: folder, kind: .note, baseTitle: "Untitled", content: nil)
+    }
+
+    /// Check or uncheck a note from the list. Sidecar-only write; the file is untouched.
+    func toggleDone(_ note: Note) {
+        guard let index = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        notes[index].isDone.toggle()
+        FileStorage.updateSidecarFlags(for: notes[index])
+        if selectedNote?.id == note.id { selectedNote = notes[index] }
+    }
+
+    /// Turn a legacy checklist into a regular note. Its markdown task list keeps working in the editor.
+    func convertChecklistToNote(_ note: Note) {
+        guard let index = notes.firstIndex(where: { $0.id == note.id }), notes[index].kind == .checklist else { return }
+        notes[index].kind = .note
+        dirtyNoteIDs.insert(note.id)
+        saveDirtyNotes()
+        if selectedNote?.id == note.id { selectedNote = notes[index] }
     }
 
     /// Create a new empty checklist note.

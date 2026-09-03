@@ -30,6 +30,8 @@ final class SidePanelController: NSWindowController {
     private var contentHostingView: NSView?
     /// Window-style resize layer: top edge, inner side edge, and their corner.
     private var resizeOverlay: PanelResizeOverlayView?
+    /// True while the user is dragging a resize edge (moves during resize are not "moves").
+    private var isUserResizing = false
     /// Frame of the floating toggle button window, if shown. Used for hit-testing so
     /// hovering/clicking the button never counts as "outside the panel".
     var floatingButtonFrameProvider: (() -> NSRect?)?
@@ -78,7 +80,9 @@ final class SidePanelController: NSWindowController {
         window.hasShadow = true
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        window.isMovableByWindowBackground = false
+        // Drag the panel anywhere by its header background. Buttons and scroll views opt
+        // out via mouseDownCanMoveWindow, so controls stay fully interactive.
+        window.isMovableByWindowBackground = true
 
         // Container view — sits between the window and the SwiftUI hosting view so we can
         // layer the resize handle on top without interfering with SwiftUI layout.
@@ -117,8 +121,12 @@ final class SidePanelController: NSWindowController {
         contentHostingView = hostingView
         resizeOverlay = overlay
 
-        overlay.onDrag = { [weak self] width, height in self?.panelDidResize(width: width, height: height) }
-        overlay.onDragEnded = { [weak self] in self?.panelResizeEnded() }
+        overlay.onDragBegan = { [weak self] in self?.isUserResizing = true }
+        overlay.onDrag = { [weak self] frame in self?.panelDidResize(to: frame) }
+        overlay.onDragEnded = { [weak self] in
+            self?.isUserResizing = false
+            self?.panelResizeEnded()
+        }
 
         // Order the window off-screen immediately so it joins all Spaces.
         // We never orderOut — the window stays ordered (off-screen when hidden)
@@ -269,6 +277,60 @@ final class SidePanelController: NSWindowController {
             name: .panelSizeChanged,
             object: nil,
         )
+
+        // User dragged the panel — remember where it landed (or dock it if near the edge)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWindowMoved),
+            name: NSWindow.didMoveNotification,
+            object: window,
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDockRequested),
+            name: .panelDockRequested,
+            object: nil,
+        )
+    }
+
+    // MARK: - Move
+
+    /// How close (pt) the panel's outer edge must be to the screen edge to auto-dock.
+    private let dockSnapDistance: CGFloat = 28
+
+    @objc private func handleWindowMoved() {
+        guard let window, isShown, !isAnimating, !isUserResizing else { return }
+        let screen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        let vf = screen.visibleFrame
+        let side = ShortcutSettings.shared.edgeSide
+        let dockedFrames = PanelGeometry.frames(
+            visibleFrame: vf, side: side == .right ? .right : .left,
+            width: window.frame.width, height: ShortcutSettings.shared.panelHeight, bottomInset: Self.bottomInset,
+        )
+        let outerDistance = switch side {
+        case .right: abs(vf.maxX - window.frame.maxX)
+        case .left: abs(window.frame.minX - vf.minX)
+        }
+        if outerDistance <= dockSnapDistance, window.frame == dockedFrames.shown || abs(window.frame.minY - dockedFrames.shown.minY) <= dockSnapDistance {
+            if ShortcutSettings.shared.panelOrigin != nil || window.frame != dockedFrames.shown {
+                ShortcutSettings.shared.panelOrigin = nil
+                if window.frame != dockedFrames.shown {
+                    NSAnimationContext.runAnimationGroup { context in
+                        context.duration = 0.15
+                        window.animator().setFrame(dockedFrames.shown, display: true)
+                    }
+                }
+                Log.window.info("[SidePanelController] docked to edge")
+            }
+        } else {
+            ShortcutSettings.shared.panelOrigin = window.frame.origin
+        }
+    }
+
+    @objc private func handleDockRequested() {
+        ShortcutSettings.shared.panelOrigin = nil
+        handlePanelSizeChanged()
     }
 
     /// Height reserved below the panel for the floating toggle button.
@@ -328,14 +390,8 @@ final class SidePanelController: NSWindowController {
 
     @objc private func handlePinStateChanged() {
         guard let window else { return }
-        let pinned = ShortcutSettings.shared.isPanelPinned
-        // Allow dragging the panel by its header background when pinned.
-        // NSView.mouseDownCanMoveWindow = false on buttons and scroll views ensures
-        // existing controls remain fully interactive — only background areas drag.
-        window.isMovableByWindowBackground = pinned
-        if !pinned {
-            snapToEdge()
-        }
+        _ = window
+        _ = ShortcutSettings.shared.isPanelPinned
     }
 
     /// Animate the panel back to its configured edge position after unpinning.
@@ -492,7 +548,7 @@ final class SidePanelController: NSWindowController {
             window.ignoresMouseEvents = false
             window.makeKeyAndOrderFront(nil)
 
-            if ShortcutSettings.shared.animationStyle == .slide {
+            if Self.effectiveAnimationStyle == .slide {
                 // Slide: teleport to the off-screen start position, then animate the frame inward.
                 // Note: on multi-monitor setups the start position may overlap the adjacent display,
                 // causing a brief ghost during the 0.2s travel. Use Fade in Settings to avoid this.
@@ -562,7 +618,7 @@ final class SidePanelController: NSWindowController {
             isAnimating = true
             window.ignoresMouseEvents = true
 
-            if ShortcutSettings.shared.animationStyle == .slide {
+            if Self.effectiveAnimationStyle == .slide {
                 // Slide out, then park far off-screen so the invisible window can't block clicks.
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.2
@@ -605,43 +661,56 @@ final class SidePanelController: NSWindowController {
 
     // MARK: - Resize
 
-    /// Live drag: apply a new width and/or height in one frame update. The screen edge and
-    /// the bottom stay anchored; the inner edge and top move.
-    private func panelDidResize(width newWidth: CGFloat?, height newHeight: CGFloat?) {
+    /// Live drag from the resize layer: clamp the proposed frame and apply it.
+    private func panelDidResize(to proposed: NSRect) {
         guard let window else { return }
-        let side = ShortcutSettings.shared.edgeSide
         let targetScreen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
         let vf = targetScreen.visibleFrame
-        var frame = window.frame
-
-        if let newWidth {
-            let maxWidth = vf.width - 100
-            let w = min(max(newWidth, PanelGeometry.minWidth), maxWidth)
-            if side == .right { frame.origin.x = frame.maxX - w }
+        var frame = proposed
+        // Width: keep between min and screen width; keep the anchored edge in place.
+        let w = min(max(frame.width, PanelGeometry.minWidth), vf.width - 100)
+        if frame.width != w {
+            if frame.minX != window.frame.minX { frame.origin.x = frame.maxX - w } // inner edge on the left moved
             frame.size.width = w
         }
-        if let newHeight {
-            frame.size.height = PanelGeometry.clampedDragHeight(newHeight, frameMinY: frame.minY, visibleFrame: vf)
+        // Height: never below the minimum, never past the top of the screen or below its bottom.
+        let h = min(max(frame.height, PanelGeometry.minHeight), vf.maxY - max(frame.minY, vf.minY))
+        if frame.height != h {
+            if frame.minY != window.frame.minY { frame.origin.y = frame.maxY - h } // bottom edge moved
+            frame.size.height = h
         }
+        frame.origin.y = max(frame.origin.y, vf.minY)
         window.setFrame(frame, display: true)
     }
 
-    /// Persist both dimensions after a drag ends.
+    /// Persist width, height, and (for a free-floating panel) origin after a drag ends.
     private func panelResizeEnded() {
         guard let window else { return }
         let targetScreen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
-        ShortcutSettings.shared.panelWidth = window.frame.width
-        let stored = PanelGeometry.storedHeightAfterDrag(
-            frameTop: window.frame.maxY,
-            frameHeight: window.frame.height,
-            visibleFrame: targetScreen.visibleFrame,
-            bottomInset: Self.bottomInset,
-        )
-        // Setting panelHeight posts .panelSizeChanged, which re-applies the frame
-        // (a no-op when unchanged, or snaps to full height when stored == nil).
-        ShortcutSettings.shared.panelHeight = stored
-        let desc = stored.map { "\($0)pt" } ?? "full"
-        Log.window.info("[SidePanelController] panel resized to \(window.frame.width, privacy: .public)×\(desc, privacy: .public)")
+        let settings = ShortcutSettings.shared
+        settings.panelWidth = window.frame.width
+        if settings.panelOrigin != nil {
+            settings.panelOrigin = window.frame.origin
+            settings.panelHeight = window.frame.height + Self.bottomInset
+        } else {
+            let docked = PanelGeometry.frames(
+                visibleFrame: targetScreen.visibleFrame, side: settings.edgeSide == .right ? .right : .left,
+                width: window.frame.width, height: settings.panelHeight, bottomInset: Self.bottomInset,
+            ).shown
+            if abs(window.frame.minY - docked.minY) > 1 {
+                // Bottom edge was dragged while docked — the panel is now free-floating.
+                settings.panelOrigin = window.frame.origin
+                settings.panelHeight = window.frame.height + Self.bottomInset
+            } else {
+                settings.panelHeight = PanelGeometry.storedHeightAfterDrag(
+                    frameTop: window.frame.maxY,
+                    frameHeight: window.frame.height,
+                    visibleFrame: targetScreen.visibleFrame,
+                    bottomInset: Self.bottomInset,
+                )
+            }
+        }
+        Log.window.info("[SidePanelController] panel resized to \(window.frame.width, privacy: .public)×\(window.frame.height, privacy: .public)")
     }
 
     // MARK: - Frame Calculation
@@ -653,12 +722,28 @@ final class SidePanelController: NSWindowController {
         return NSRect(x: -panelWidth - 1000, y: -10000, width: panelWidth, height: height)
     }
 
-    /// Returns (shown, hidden) frames for the given edge side using the persisted panel size.
+    /// Slide animations only make sense from a docked edge; a free-floating panel fades.
+    private static var effectiveAnimationStyle: AnimationStyle {
+        ShortcutSettings.shared.panelOrigin == nil ? ShortcutSettings.shared.animationStyle : .fade
+    }
+
+    /// Returns (shown, hidden) frames. Docked: computed from the edge. Free-floating: the
+    /// remembered origin, clamped so the whole panel stays on the screen that contains it.
     private func panelFrames(visibleFrame: NSRect, side: EdgeSide) -> (shown: NSRect, hidden: NSRect) {
+        let width = ShortcutSettings.shared.panelWidth
+        if let origin = ShortcutSettings.shared.panelOrigin {
+            let screen = NSScreen.screens.first { $0.frame.contains(origin) } ?? NSScreen.main
+            let vf = screen?.visibleFrame ?? visibleFrame
+            let height = PanelGeometry.resolvedHeight(visibleFrame: vf, height: ShortcutSettings.shared.panelHeight, bottomInset: Self.bottomInset)
+            var frame = NSRect(origin: origin, size: NSSize(width: width, height: height))
+            frame.origin.x = min(max(frame.origin.x, vf.minX), vf.maxX - frame.width)
+            frame.origin.y = min(max(frame.origin.y, vf.minY), vf.maxY - frame.height)
+            return (frame, frame)
+        }
         let frames = PanelGeometry.frames(
             visibleFrame: visibleFrame,
             side: side == .right ? .right : .left,
-            width: ShortcutSettings.shared.panelWidth,
+            width: width,
             height: ShortcutSettings.shared.panelHeight,
             bottomInset: Self.bottomInset,
         )
@@ -782,51 +867,54 @@ final class SidePanelController: NSWindowController {
 // MARK: - PanelResizeOverlayView
 
 /// Transparent layer over the panel that behaves like a window's resize border.
-/// Grab zones: the top edge (height), the inner side edge (width), and the corner
-/// where they meet (both, diagonal). Points outside the zones are not hit-tested,
-/// so clicks fall through to the SwiftUI content underneath.
+/// Grab zones: top edge, bottom edge, inner side edge, and the corners where they meet.
+/// Points outside the zones are not hit-tested, so clicks fall through to SwiftUI.
 private final class PanelResizeOverlayView: NSView {
     struct Zone: OptionSet {
         let rawValue: Int
         static let top = Zone(rawValue: 1)
-        static let side = Zone(rawValue: 2)
-        static let corner: Zone = [.top, .side]
+        static let bottom = Zone(rawValue: 2)
+        static let side = Zone(rawValue: 4)
     }
 
     var side: EdgeSide = .right
-    var onDrag: ((CGFloat?, CGFloat?) -> Void)?
+    var onDragBegan: (() -> Void)?
+    /// Proposed new window frame (screen coordinates) during a drag.
+    var onDrag: ((NSRect) -> Void)?
     var onDragEnded: (() -> Void)?
 
-    /// Visible card insets from PageLayout: 12pt horizontal, 8pt top.
+    /// Visible card insets from PageLayout: 12pt horizontal, 8pt top, 12pt bottom.
     private let cardInsetX: CGFloat = 12
     private let cardInsetTop: CGFloat = 8
+    private let cardInsetBottom: CGFloat = 12
     /// Grab band extends this far on each side of the visible card edge.
     private let grab: CGFloat = 7
 
     private var activeZone: Zone = []
     private var dragStart = NSPoint.zero
-    private var startWidth: CGFloat = 0
-    private var startHeight: CGFloat = 0
+    private var startFrame = NSRect.zero
 
     func zone(at point: NSPoint) -> Zone {
         let topEdge = bounds.height - cardInsetTop
+        let bottomEdge = cardInsetBottom
         let innerEdge: CGFloat = switch side {
         case .right: cardInsetX
         case .left: bounds.width - cardInsetX
         }
         // Distance "beyond" an edge counts as on it, so the transparent margin is grabbable too.
         let dTop = point.y > topEdge ? 0 : topEdge - point.y
+        let dBottom = point.y < bottomEdge ? 0 : point.y - bottomEdge
         let dSide: CGFloat = switch side {
         case .right: point.x < innerEdge ? 0 : point.x - innerEdge
         case .left: point.x > innerEdge ? 0 : innerEdge - point.x
         }
-        let nearTop = dTop <= grab
-        let nearSide = dSide <= grab
-        // Corner: within a slightly larger square around the meeting point.
-        if dTop <= grab * 2, dSide <= grab * 2, nearTop || nearSide { return .corner }
-        if nearTop { return .top }
-        if nearSide { return .side }
-        return []
+        var z: Zone = []
+        let wide = grab * 2
+        if dTop <= grab || (dTop <= wide && dSide <= wide) { z.insert(.top) }
+        if dBottom <= grab || (dBottom <= wide && dSide <= wide) { z.insert(.bottom) }
+        if dSide <= grab || (dSide <= wide && (dTop <= wide || dBottom <= wide)) { z.insert(.side) }
+        if z.contains(.top), z.contains(.bottom) { z.remove(.bottom) } // tiny panels: prefer top
+        return z
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -836,24 +924,35 @@ private final class PanelResizeOverlayView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         activeZone = zone(at: convert(event.locationInWindow, from: nil))
+        guard !activeZone.isEmpty else { return }
         dragStart = NSEvent.mouseLocation
-        startWidth = window?.frame.width ?? 0
-        startHeight = window?.frame.height ?? 0
+        startFrame = window?.frame ?? .zero
+        onDragBegan?()
     }
 
     override func mouseDragged(with _: NSEvent) {
         guard !activeZone.isEmpty else { return }
         let now = NSEvent.mouseLocation
-        var newWidth: CGFloat? = nil
-        var newHeight: CGFloat? = nil
+        let dx = now.x - dragStart.x
+        let dy = now.y - dragStart.y
+        var f = startFrame
         if activeZone.contains(.side) {
-            let dx = now.x - dragStart.x
-            newWidth = side == .right ? startWidth - dx : startWidth + dx
+            switch side {
+            case .right: // inner edge is the left edge
+                f.origin.x = startFrame.minX + dx
+                f.size.width = startFrame.width - dx
+            case .left: // inner edge is the right edge
+                f.size.width = startFrame.width + dx
+            }
         }
         if activeZone.contains(.top) {
-            newHeight = startHeight + (now.y - dragStart.y)
+            f.size.height = startFrame.height + dy
         }
-        onDrag?(newWidth, newHeight)
+        if activeZone.contains(.bottom) {
+            f.origin.y = startFrame.minY + dy
+            f.size.height = startFrame.height - dy
+        }
+        onDrag?(f)
     }
 
     override func mouseUp(with _: NSEvent) {
@@ -883,15 +982,18 @@ private final class PanelResizeOverlayView: NSView {
 
     private func applyCursor(for event: NSEvent) {
         let z = activeZone.isEmpty ? zone(at: convert(event.locationInWindow, from: nil)) : activeZone
-        switch z {
-        case .corner:
-            let position: NSCursor.FrameResizePosition = side == .right ? .topLeft : .topRight
+        let innerIsLeft = side == .right
+        let position: NSCursor.FrameResizePosition? = switch z {
+        case [.top, .side]: innerIsLeft ? .topLeft : .topRight
+        case [.bottom, .side]: innerIsLeft ? .bottomLeft : .bottomRight
+        case [.top]: .top
+        case [.bottom]: .bottom
+        case [.side]: innerIsLeft ? .left : .right
+        default: nil
+        }
+        if let position {
             NSCursor.frameResize(position: position, directions: .all).set()
-        case .top:
-            NSCursor.frameResize(position: .top, directions: .all).set()
-        case .side:
-            NSCursor.frameResize(position: side == .right ? .left : .right, directions: .all).set()
-        default:
+        } else {
             NSCursor.arrow.set()
         }
     }

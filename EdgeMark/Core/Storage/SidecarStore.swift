@@ -15,6 +15,7 @@ final class SidecarStore {
         var savedAt: Date // last EdgeMark write — external-change sentinel
         var tags: [String] // TagColor rawValues
         var kind: String? = nil // NoteKind rawValue; nil = regular note
+        var done: Bool? = nil // checked-off state; nil = not done
     }
 
     struct TrashEntry: Codable {
@@ -25,6 +26,7 @@ final class SidecarStore {
         var modifiedAt: Date
         var tags: [String]
         var kind: String? = nil // NoteKind rawValue; nil = regular note
+        var done: Bool? = nil // checked-off state; nil = not done
     }
 
     struct FolderEntry: Codable {

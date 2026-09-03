@@ -108,10 +108,11 @@ private struct NSContextMenuOverlay: NSViewRepresentable {
 struct RowClickModifier: ViewModifier {
     let onSingle: (NSEvent.ModifierFlags) -> Void
     let onDouble: () -> Void
+    var leadingPassThrough: CGFloat = 0
 
     func body(content: Content) -> some View {
         content.overlay {
-            RowClickOverlay(onSingle: onSingle, onDouble: onDouble)
+            RowClickOverlay(onSingle: onSingle, onDouble: onDouble, leadingPassThrough: leadingPassThrough)
         }
     }
 }
@@ -120,17 +121,21 @@ extension View {
     /// Attach an instant single/double click handler.
     /// Single click fires immediately on mouse-down with the active modifier flags.
     /// Double click fires when the second click arrives.
+    /// `leadingPassThrough`: width (pt) at the leading edge where clicks are NOT intercepted,
+    /// so an inline control there (e.g. a check marker) receives them.
     func rowClick(
         onSingle: @escaping (NSEvent.ModifierFlags) -> Void,
         onDouble: @escaping () -> Void,
+        leadingPassThrough: CGFloat = 0,
     ) -> some View {
-        modifier(RowClickModifier(onSingle: onSingle, onDouble: onDouble))
+        modifier(RowClickModifier(onSingle: onSingle, onDouble: onDouble, leadingPassThrough: leadingPassThrough))
     }
 }
 
 private struct RowClickOverlay: NSViewRepresentable {
     let onSingle: (NSEvent.ModifierFlags) -> Void
     let onDouble: () -> Void
+    var leadingPassThrough: CGFloat = 0
 
     func makeNSView(context _: Context) -> RowClickCatcher {
         RowClickCatcher()
@@ -139,6 +144,7 @@ private struct RowClickOverlay: NSViewRepresentable {
     func updateNSView(_ nsView: RowClickCatcher, context _: Context) {
         nsView.onSingle = onSingle
         nsView.onDouble = onDouble
+        nsView.leadingPassThrough = leadingPassThrough
     }
 
     /// Transparent NSView that intercepts only left-mouse-down (so right-clicks,
@@ -146,12 +152,13 @@ private struct RowClickOverlay: NSViewRepresentable {
     final class RowClickCatcher: NSView {
         var onSingle: ((NSEvent.ModifierFlags) -> Void)?
         var onDouble: (() -> Void)?
+        var leadingPassThrough: CGFloat = 0
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             // Only intercept left-clicks; pass everything else through.
             if let event = NSApp.currentEvent, event.type == .leftMouseDown {
                 let local = convert(point, from: superview)
-                if bounds.contains(local) {
+                if bounds.contains(local), local.x >= bounds.minX + leadingPassThrough {
                     return self
                 }
             }

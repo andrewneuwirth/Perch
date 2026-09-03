@@ -6,6 +6,9 @@ enum CreateKind: String, CaseIterable, Identifiable {
     case note, checklist, folder, link
     var id: String { rawValue }
 
+    /// Kinds offered in the modal. Checklist stays supported for existing files but is no longer created here.
+    static let offered: [CreateKind] = [.note, .folder, .link]
+
     var symbol: String {
         switch self {
         case .note: "doc.text"
@@ -123,9 +126,9 @@ struct CreateItemModal: View {
                     .keyboardShortcut(.cancelAction)
                 }
 
-                // Type picker: 2×2 tiles
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(CreateKind.allCases) { k in
+                // Type picker
+                HStack(spacing: 8) {
+                    ForEach(CreateKind.offered) { k in
                         KindTile(kind: k, isSelected: kind == k, title: l10n[k.titleKey], hint: l10n[k.hintKey]) {
                             kind = k
                             showError = false
@@ -271,25 +274,22 @@ private struct KindTile: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            VStack(spacing: 6) {
                 Image(systemName: kind.symbol)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(isSelected ? .white : Color.accentColor)
-                    .frame(width: 30, height: 30)
-                    .background(isSelected ? Color.accentColor : Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text(hint)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
+                    .frame(width: 34, height: 34)
+                    .background(isSelected ? Color.accentColor : Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(hint)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            .padding(8)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
             .background(isSelected ? Color.accentColor.opacity(0.14) : (isHovered ? Color.glassInsetHover : Color.glassInset))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {

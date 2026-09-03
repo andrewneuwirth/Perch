@@ -3,7 +3,7 @@
   "create.title": "New",
   "create.inFolder": "in {0}",
   "create.note": "Note",
-  "create.note.hint": "Markdown page",
+  "create.note.hint": "Can be checked off",
   "create.checklist": "Checklist",
   "create.checklist.hint": "Tasks in groups",
   "create.folder": "Folder",
@@ -19,6 +19,7 @@
   "links.title": "Links",
   "links.empty": "Save websites you open often. Press + to add one.",
   "header.more": "More",
+  "panel.dockToEdge": "Dock panel to screen edge",
 
   "settings.panelSize.section": "Panel Size",
   "settings.panelSize.fullHeight": "Full height",
@@ -49,6 +50,7 @@
   "checklist.editLabel": "Edit label",
   "checklist.empty": "No items yet",
   "checklist.openDetail": "Open details",
+  "checklist.convertToNote": "Convert to note",
 
   "favorites.title": "Favorites",
   "favorites.show": "Show favorites",

@@ -241,6 +241,7 @@ struct NoteListView: View {
                 note: note,
                 iconWidth: iconWidth,
                 isSelected: noteStore.isSelected(id),
+                onToggleDone: { noteStore.toggleDone(note) },
             )
             .rowClick(
                 onSingle: { mods in
@@ -252,6 +253,7 @@ struct NoteListView: View {
                     )
                 },
                 onDouble: { noteStore.openNote(note) },
+                leadingPassThrough: NoteRowView.markerZoneWidth,
             )
             .reportRowFrame(id)
             .hoverableRow(id: id, content: .note(note))

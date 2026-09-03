@@ -11,6 +11,8 @@ struct Note: Identifiable {
     var title: String
     /// Regular markdown note or structured checklist. Persisted in the sidecar.
     var kind: NoteKind
+    /// Checked-off state — any note can be a task. Persisted in the sidecar.
+    var isDone: Bool
     var content: String
     var createdAt: Date
     var modifiedAt: Date
@@ -63,10 +65,12 @@ struct Note: Identifiable {
         trashedAt: Date? = nil,
         savedFilename: String? = nil,
         kind: NoteKind = .note,
+        isDone: Bool = false,
     ) {
         self.id = id
         self.title = title
         self.kind = kind
+        self.isDone = isDone
         self.content = content
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
@@ -88,6 +92,7 @@ struct Note: Identifiable {
             && lhs.tags == rhs.tags
             && lhs.trashedAt == rhs.trashedAt
             && lhs.kind == rhs.kind
+            && lhs.isDone == rhs.isDone
     }
 }
 

@@ -357,6 +357,7 @@ struct HomeFolderView: View {
                 note: note,
                 iconWidth: iconWidth,
                 isSelected: noteStore.isSelected(id),
+                onToggleDone: { noteStore.toggleDone(note) },
             )
             .rowClick(
                 onSingle: { mods in
@@ -368,6 +369,7 @@ struct HomeFolderView: View {
                     )
                 },
                 onDouble: { noteStore.openNote(note) },
+                leadingPassThrough: NoteRowView.markerZoneWidth,
             )
             .reportRowFrame(id)
             .hoverableRow(id: id, content: .note(note))
@@ -712,8 +714,8 @@ struct FolderRowView: View {
             Text(name)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
 
@@ -758,30 +760,37 @@ struct NoteRowView: View {
     let note: Note
     let iconWidth: CGFloat
     var isSelected: Bool = false
+    var onToggleDone: (() -> Void)? = nil
+
+    /// Width of the leading check-marker area; row clicks pass through here.
+    static let markerZoneWidth: CGFloat = 44
 
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            RowIconTile(
-                systemName: note.kind == .checklist ? "checklist" : "doc.text",
-                tint: note.kind == .checklist ? Color.accentColor : Color.secondary,
-            )
+        HStack(alignment: .top, spacing: 12) {
+            CheckMarkerView(isDone: note.isDone, size: 20) {
+                onToggleDone?()
+            }
+            .padding(.top, 1)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline) {
                     TagDotsView(tags: note.tags)
 
                     Text(note.title.isEmpty ? L10n.shared["common.untitled"] : note.title)
                         .font(.body)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                        .foregroundStyle(note.isDone ? .secondary : .primary)
+                        .strikethrough(note.isDone, color: .secondary)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                    Spacer()
+                    Spacer(minLength: 8)
 
                     Text(note.createdAt.homeDisplayFormat)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                        .fixedSize()
                 }
 
                 if note.kind == .checklist, let p = note.checklistProgress {
@@ -790,10 +799,12 @@ struct NoteRowView: View {
                     Text(note.previewText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
+        .opacity(note.isDone ? 0.7 : 1)
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .background {

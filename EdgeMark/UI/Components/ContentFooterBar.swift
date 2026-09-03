@@ -84,6 +84,12 @@ struct ContentFooterBar: View {
 
         menu.addItem(.separator())
 
+        menu.addActionItem(title: l10n["panel.dockToEdge"], icon: "rectangle.righthalf.inset.filled") {
+            NotificationCenter.default.post(name: .panelDockRequested, object: nil)
+        }
+
+        menu.addItem(.separator())
+
         menu.addActionItem(title: l10n["menu.settings"], icon: "gearshape") { [openSettings] in
             openSettings()
         }

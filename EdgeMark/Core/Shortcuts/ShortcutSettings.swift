@@ -229,6 +229,20 @@ final class ShortcutSettings {
         }
     }
 
+    /// Where the user last dropped the panel (screen coordinates of its bottom-left corner).
+    /// nil = docked to the configured screen edge.
+    var panelOrigin: CGPoint? {
+        didSet {
+            if let o = panelOrigin {
+                UserDefaults.standard.set(Double(o.x), forKey: panelOriginXKey)
+                UserDefaults.standard.set(Double(o.y), forKey: panelOriginYKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: panelOriginXKey)
+                UserDefaults.standard.removeObject(forKey: panelOriginYKey)
+            }
+        }
+    }
+
     /// Whether the always-on-top floating toggle button is shown in the bottom corner.
     var floatingButtonEnabled: Bool {
         didSet {
@@ -300,6 +314,8 @@ final class ShortcutSettings {
     private let panelWidthKey = "panelWidth"
     private let panelHeightKey = "panelHeight"
     private let floatingButtonEnabledKey = "floatingButtonEnabled"
+    private let panelOriginXKey = "panelOriginX"
+    private let panelOriginYKey = "panelOriginY"
 
     // MARK: - Init
 
@@ -356,6 +372,11 @@ final class ShortcutSettings {
         let savedHeight = UserDefaults.standard.object(forKey: panelHeightKey) as? Double
         panelHeight = savedHeight.map { CGFloat($0) }
         floatingButtonEnabled = UserDefaults.standard.object(forKey: floatingButtonEnabledKey) as? Bool ?? true
+        if let ox = UserDefaults.standard.object(forKey: panelOriginXKey) as? Double,
+           let oy = UserDefaults.standard.object(forKey: panelOriginYKey) as? Double
+        {
+            panelOrigin = CGPoint(x: ox, y: oy)
+        }
 
         loadShortcuts()
         loadLocalShortcuts()
@@ -442,6 +463,8 @@ extension Notification.Name {
     /// Panel height or floating-button inset changed — controller should re-lay out.
     static let panelSizeChanged = Notification.Name("panelSizeChanged")
     static let floatingButtonSettingChanged = Notification.Name("floatingButtonSettingChanged")
+    /// Ask the panel to return to its docked edge position.
+    static let panelDockRequested = Notification.Name("panelDockRequested")
     /// Posted by SidePanelController whenever the panel becomes shown or hidden. userInfo["shown"] = Bool.
     static let panelVisibilityChanged = Notification.Name("panelVisibilityChanged")
 }

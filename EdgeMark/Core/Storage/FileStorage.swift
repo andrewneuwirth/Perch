@@ -311,10 +311,20 @@ enum FileStorage {
                 savedAt: savedAt,
                 tags: note.tags.map(\.rawValue),
                 kind: note.kind == .note ? nil : note.kind.rawValue,
+                done: note.isDone ? true : nil,
             ),
             for: note.id,
         )
         try? SidecarStore.shared.save()
+    }
+
+    /// Update only the sidecar flags (done state) without touching the file on disk.
+    static func updateSidecarFlags(for note: Note) {
+        if note.trashedAt == nil, var entry = SidecarStore.shared.noteEntry(for: note.id) {
+            entry.done = note.isDone ? true : nil
+            SidecarStore.shared.upsertNote(entry, for: note.id)
+            try? SidecarStore.shared.save()
+        }
     }
 
     static func deleteNote(_ note: Note) throws {
@@ -421,6 +431,7 @@ enum FileStorage {
                 modifiedAt: note.modifiedAt,
                 tags: note.tags.map(\.rawValue),
                 kind: note.kind == .note ? nil : note.kind.rawValue,
+                done: note.isDone ? true : nil,
             ),
             for: note.id,
         )
@@ -467,6 +478,7 @@ enum FileStorage {
                 savedAt: savedAt,
                 tags: note.tags.map(\.rawValue),
                 kind: note.kind == .note ? nil : note.kind.rawValue,
+                done: note.isDone ? true : nil,
             ),
             for: note.id,
         )
@@ -559,6 +571,7 @@ enum FileStorage {
                     modifiedAt: entry.modifiedAt,
                     tags: entry.tags,
                     kind: entry.kind,
+                    done: entry.done,
                 ), for: noteID)
             }
         }
@@ -616,6 +629,7 @@ enum FileStorage {
                     savedAt: actualMtime,
                     tags: entry.tags,
                     kind: entry.kind,
+                    done: entry.done,
                 ), for: noteID)
             }
         }
@@ -779,6 +793,7 @@ enum FileStorage {
                     trashedAt: entry.trashedAt,
                     savedFilename: filename,
                     kind: entry.kind.flatMap { NoteKind(rawValue: $0) } ?? .note,
+                    isDone: entry.done ?? false,
                 )
             }
         } else {
@@ -797,6 +812,7 @@ enum FileStorage {
                     tags: tags,
                     savedFilename: filename,
                     kind: entry.kind.flatMap { NoteKind(rawValue: $0) } ?? .note,
+                    isDone: entry.done ?? false,
                 )
             }
         }

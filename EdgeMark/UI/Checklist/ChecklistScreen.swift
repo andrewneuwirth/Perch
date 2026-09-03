@@ -36,23 +36,7 @@ struct ChecklistScreen: View {
         PageLayout(onSwipeBack: { goBack() }) {
             header
         } content: {
-            ZStack {
-                if let id = openItemID, let item = doc.item(id: id) {
-                    ChecklistItemDetailView(
-                        item: item,
-                        onChange: { updated in
-                            doc.update(updated)
-                            commit()
-                        },
-                        onBack: { withAnimation(.easeInOut(duration: 0.2)) { openItemID = nil } },
-                    )
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
-                } else {
-                    listBody
-                        .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .leading)))
-                }
-            }
-            .clipped()
+            listBody
         }
         .onAppear {
             noteStore.onNeedEditorReload = { content in
@@ -93,11 +77,7 @@ struct ChecklistScreen: View {
             VStack(spacing: 6) {
                 HStack {
                     HeaderIconButton(systemName: "chevron.left", help: backLabel) {
-                        if openItemID != nil {
-                            withAnimation(.easeInOut(duration: 0.2)) { openItemID = nil }
-                        } else {
-                            goBack()
-                        }
+                        goBack()
                     }
 
                     Spacer()
@@ -127,6 +107,11 @@ struct ChecklistScreen: View {
                             Label(l10n["checklist.clearCompleted"], systemImage: "trash.slash")
                         }
                         .disabled(doc.doneCount == 0)
+                        Button {
+                            noteStore.convertChecklistToNote(note)
+                        } label: {
+                            Label(l10n["checklist.convertToNote"], systemImage: "doc.text")
+                        }
                         Divider()
                         Button(role: .destructive) {
                             showDeleteConfirm = true
@@ -180,7 +165,9 @@ struct ChecklistScreen: View {
                     groupSection(group: group)
                 }
 
-                addGroupRow
+                if !doc.groups.isEmpty {
+                    addGroupRow
+                }
             }
             .padding(.vertical, 8)
         }
@@ -206,7 +193,7 @@ struct ChecklistScreen: View {
                         }
                         commit()
                     },
-                    onOpen: { withAnimation(.easeInOut(duration: 0.2)) { openItemID = item.id } },
+                    onOpen: {},
                     onRename: { newTitle in
                         var updated = item
                         updated.title = newTitle
@@ -402,31 +389,24 @@ private struct ChecklistRowView: View {
                     .font(.body)
                     .strikethrough(item.isDone, color: .secondary)
                     .foregroundStyle(item.isDone ? .secondary : .primary)
-                    .lineLimit(1)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
                     .contentShape(Rectangle())
-                    .onTapGesture(count: 2) { beginRename() }
-                    .onTapGesture(count: 1) { onOpen() }
+                    .onTapGesture { beginRename() }
 
                 Spacer(minLength: 4)
 
-                if hasDetails {
-                    HStack(spacing: 4) {
-                        if !item.notes.isEmpty {
-                            Image(systemName: "text.alignleft")
-                        }
-                        if !item.links.isEmpty {
-                            Image(systemName: "link")
-                            Text("\(item.links.count)")
-                        }
+                if !item.links.isEmpty {
+                    Button {
+                        if let url = item.links.first?.url { NSWorkspace.shared.open(url) }
+                    } label: {
+                        Image(systemName: "link")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .buttonStyle(.plain)
+                    .help(item.links.first?.url.absoluteString ?? "")
                 }
-
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .opacity(isHovered ? 1 : 0)
             }
         }
         .padding(.horizontal, 10)
@@ -437,7 +417,6 @@ private struct ChecklistRowView: View {
         .contentShape(Rectangle())
         .onHover { h in withAnimation(.easeInOut(duration: 0.12)) { isHovered = h } }
         .contextMenu {
-            Button { onOpen() } label: { Label(l10n["checklist.openDetail"], systemImage: "info.circle") }
             Button { beginRename() } label: { Label(l10n["common.rename"], systemImage: "pencil") }
             if !moveTargets.isEmpty {
                 Menu {
