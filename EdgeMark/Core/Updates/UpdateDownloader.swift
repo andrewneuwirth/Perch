@@ -32,7 +32,7 @@ final nonisolated class UpdateDownloader: NSObject, Sendable, URLSessionDownload
 
         let requiredSpace = Int64(asset.size) * 3
         let tempDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("EdgeMark")
+            .appendingPathComponent("Perch")
         if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: tempDir.path),
            let freeSpace = attrs[.systemFreeSize] as? Int64,
            freeSpace < requiredSpace
@@ -40,7 +40,7 @@ final nonisolated class UpdateDownloader: NSObject, Sendable, URLSessionDownload
             throw UpdateError.insufficientDiskSpace
         }
 
-        let targetDir = tempDir.appendingPathComponent("EdgeMarkUpdate-\(UUID().uuidString)")
+        let targetDir = tempDir.appendingPathComponent("PerchUpdate-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: targetDir, withIntermediateDirectories: true)
 
         Log.updates.info("[UpdateDownloader] starting download: \(asset.name, privacy: .public) (\(asset.size) bytes)")
@@ -50,7 +50,7 @@ final nonisolated class UpdateDownloader: NSObject, Sendable, URLSessionDownload
 
             let config = URLSessionConfiguration.default
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-            config.httpAdditionalHeaders = ["User-Agent": "EdgeMark/\(version) (macOS)"]
+            config.httpAdditionalHeaders = ["User-Agent": "Perch/\(version) (macOS)"]
             let session = URLSession(configuration: config, delegate: downloader, delegateQueue: nil)
 
             Task {
@@ -102,7 +102,7 @@ final nonisolated class UpdateDownloader: NSObject, Sendable, URLSessionDownload
         downloadTask _: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL,
     ) {
-        let destination = targetDirectory.appendingPathComponent("EdgeMark-update.dmg")
+        let destination = targetDirectory.appendingPathComponent("Perch-update.dmg")
         do {
             if FileManager.default.fileExists(atPath: destination.path) {
                 try FileManager.default.removeItem(at: destination)

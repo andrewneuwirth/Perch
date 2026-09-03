@@ -65,11 +65,11 @@ struct EditorScreen: View {
                 set: { if !$0 { noteStore.pendingExternalChange = nil } },
             ),
         ) {
-            Button(l10n["alert.externalChange.keepEdgeMarkEdits"]) {
-                noteStore.resolveExternalChange(keepEdgeMarkEdits: true)
+            Button(l10n["alert.externalChange.keepPerchEdits"]) {
+                noteStore.resolveExternalChange(keepPerchEdits: true)
             }
             Button(l10n["alert.externalChange.reloadFromDisk"], role: .destructive) {
-                noteStore.resolveExternalChange(keepEdgeMarkEdits: false)
+                noteStore.resolveExternalChange(keepPerchEdits: false)
             }
         } message: {
             Text(l10n["alert.externalChange.message"])

@@ -65,7 +65,7 @@ final class NoteStore {
 
     var pendingFolderMoveConflicts: [PendingFolderMoveConflict] = []
 
-    /// Conflict when both EdgeMark and an external editor modified the same open note.
+    /// Conflict when both Perch and an external editor modified the same open note.
     struct PendingExternalChange {
         let noteID: UUID
         let diskContent: String
@@ -368,7 +368,7 @@ final class NoteStore {
                 Log.storage.debug("[ExternalSync] '\(t, privacy: .public)' — file not found on disk")
                 continue
             }
-            // Compare file mtime against savedAt (last time EdgeMark wrote this file).
+            // Compare file mtime against savedAt (last time Perch wrote this file).
             // Using savedAt instead of modifiedAt prevents false positives from auto-saves
             // that write the file without changing content.
             let diff = diskDate.timeIntervalSince(note.savedAt)
@@ -388,11 +388,11 @@ final class NoteStore {
 
             let title = notes[i].title
             if isOpen, isDirty {
-                // Both EdgeMark and external have changes — prompt user
+                // Both Perch and external have changes — prompt user
                 Log.storage.info("[NoteStore] external conflict on open note '\(title, privacy: .public)'")
                 pendingExternalChange = PendingExternalChange(noteID: noteID, diskContent: diskContent, diskDate: diskDate, diskTags: diskTags)
             } else {
-                // Safe to auto-reload: note not open, or open but no EdgeMark edits
+                // Safe to auto-reload: note not open, or open but no Perch edits
                 Log.storage.info("[NoteStore] auto-syncing '\(title, privacy: .public)' from external change")
                 notes[i].content = diskContent
                 notes[i].modifiedAt = diskModifiedAt
@@ -416,11 +416,11 @@ final class NoteStore {
         }
     }
 
-    /// Resolve external conflict: keep EdgeMark edits (discard disk) or reload from disk.
-    func resolveExternalChange(keepEdgeMarkEdits: Bool) {
+    /// Resolve external conflict: keep Perch edits (discard disk) or reload from disk.
+    func resolveExternalChange(keepPerchEdits: Bool) {
         guard let conflict = pendingExternalChange else { return }
         pendingExternalChange = nil
-        if !keepEdgeMarkEdits,
+        if !keepPerchEdits,
            let i = notes.firstIndex(where: { $0.id == conflict.noteID })
         {
             notes[i].content = conflict.diskContent

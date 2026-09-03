@@ -21,7 +21,7 @@ struct RowFramesKey: PreferenceKey {
 /// Named coordinate space that anchors row-frame reporting and the marquee
 /// overlay to the same origin.
 enum MarqueeCoordinateSpace {
-    static let name = "EdgeMark.Marquee"
+    static let name = "Perch.Marquee"
 }
 
 extension View {

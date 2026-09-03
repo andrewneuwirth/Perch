@@ -265,7 +265,7 @@ final class ShortcutSettings {
         }
     }
 
-    /// Custom storage directory for notes. nil = default (`~/Documents/EdgeMark/`).
+    /// Custom storage directory for notes. nil = default (`~/Documents/Perch/`).
     var storageDirectory: URL? {
         didSet {
             if let url = storageDirectory {
@@ -277,13 +277,13 @@ final class ShortcutSettings {
         }
     }
 
-    /// Resolved storage directory — custom if set, otherwise `~/Documents/EdgeMark/`.
+    /// Resolved storage directory — custom if set, otherwise `~/Documents/Perch/`.
     var resolvedStorageDirectory: URL {
         if let custom = storageDirectory {
             return custom
         }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return docs.appendingPathComponent("EdgeMark", isDirectory: true)
+        return docs.appendingPathComponent("Perch", isDirectory: true)
     }
 
     // MARK: - Keys

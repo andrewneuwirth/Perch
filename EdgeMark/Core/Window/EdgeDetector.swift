@@ -29,7 +29,7 @@ final class EdgeDetector {
             self?.handleMouseMove()
         }
         // Local monitor: fires for mouse moves in OUR app (covers the case
-        // where EdgeMark is still the active app after the panel hides).
+        // where Perch is still the active app after the panel hides).
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             self?.handleMouseMove()
             return event

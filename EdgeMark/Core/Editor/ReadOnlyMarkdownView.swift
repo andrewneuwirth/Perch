@@ -13,7 +13,7 @@ struct ReadOnlyMarkdownView: View {
         var config = MarkdownEditorConfiguration.default
         config.textInsets = TextInsets(horizontal: 16, vertical: 12)
         config.services = MarkdownEditorServices(
-            images: EdgeMarkImageProvider(noteFolder: noteFolder),
+            images: PerchImageProvider(noteFolder: noteFolder),
             syntaxHighlighter: HighlighterSwiftBridge(),
             latex: SwiftMathBridge(),
         )

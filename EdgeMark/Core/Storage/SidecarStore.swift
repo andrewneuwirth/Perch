@@ -12,7 +12,7 @@ final class SidecarStore {
         var path: String // relative to rootURL, e.g. "folder/Note.md"
         var createdAt: Date
         var modifiedAt: Date
-        var savedAt: Date // last EdgeMark write — external-change sentinel
+        var savedAt: Date // last Perch write — external-change sentinel
         var tags: [String] // TagColor rawValues
         var kind: String? = nil // NoteKind rawValue; nil = regular note
         var done: Bool? = nil // checked-off state; nil = not done

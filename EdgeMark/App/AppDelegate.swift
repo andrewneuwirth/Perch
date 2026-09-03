@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
         Log.app.info("[AppDelegate] launched v\(version, privacy: .public) (build \(build, privacy: .public))")
+        Self.migrateDefaultStorageFolderIfNeeded()
         ShortcutSettings.shared.applyAppearance()
         setupMenuBar()
         panelController = SidePanelController()
@@ -262,6 +263,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Storage Migration
+
+    /// One-time move from the old default notes folder (~/Documents/EdgeMark) to the
+    /// renamed default (~/Documents/Perch). Only runs when the user hasn't picked a
+    /// custom storage directory and the new folder doesn't already exist.
+    private static func migrateDefaultStorageFolderIfNeeded() {
+        guard ShortcutSettings.shared.storageDirectory == nil else { return }
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let oldURL = docs.appendingPathComponent("EdgeMark", isDirectory: true)
+        let newURL = docs.appendingPathComponent("Perch", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: oldURL.path),
+              !FileManager.default.fileExists(atPath: newURL.path)
+        else { return }
+        Log.app.info("[AppDelegate] migrating default notes folder EdgeMark → Perch")
+        migrateStorageContents(from: oldURL, to: newURL)
+        try? FileManager.default.removeItem(at: oldURL)
+    }
 
     /// Move all files and folders from the old storage directory into the new one.
     private static func migrateStorageContents(from oldURL: URL, to newURL: URL) {

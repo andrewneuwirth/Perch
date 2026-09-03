@@ -12,7 +12,7 @@ actor UpdateChecker {
         config.timeoutIntervalForResource = 30
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         config.httpAdditionalHeaders = [
-            "User-Agent": "EdgeMark/\(version) (macOS)",
+            "User-Agent": "Perch/\(version) (macOS)",
             "Accept": "application/vnd.github+json",
         ]
         session = URLSession(configuration: config)

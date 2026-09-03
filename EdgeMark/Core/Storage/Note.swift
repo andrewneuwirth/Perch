@@ -16,7 +16,7 @@ struct Note: Identifiable {
     var content: String
     var createdAt: Date
     var modifiedAt: Date
-    /// When EdgeMark last wrote this file to disk. Used as the external-change
+    /// When Perch last wrote this file to disk. Used as the external-change
     /// detection sentinel — separate from `modifiedAt` so auto-saves without
     /// content changes don't advance the user-visible timestamp.
     var savedAt: Date

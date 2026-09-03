@@ -13,28 +13,26 @@ struct AboutSettingsTab: View {
                     .resizable()
                     .frame(width: 80, height: 80)
 
-                Text("EdgeMark")
+                Text("Perch")
                     .font(.title.bold())
 
                 Text(l10n.t("settings.about.version", appVersion, buildNumber))
                     .foregroundStyle(.secondary)
             }
 
+            Text(l10n["settings.about.basedOn"])
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Divider()
                 .padding(.horizontal, 40)
 
             // Links
             VStack(spacing: 10) {
+                // Points at the original open-source project this fork is built on —
+                // not this customized build, which has no issue tracker of its own.
                 Link(destination: URL(string: "https://github.com/Ender-Wang/EdgeMark")!) {
-                    Label(l10n["settings.about.viewOnGitHub"], systemImage: "arrow.up.right.square")
-                }
-
-                Link(destination: URL(string: "https://github.com/Ender-Wang/EdgeMark/issues/new?template=bug_report.md")!) {
-                    Label(l10n["settings.about.reportBug"], systemImage: "ladybug")
-                }
-
-                Link(destination: URL(string: "https://github.com/Ender-Wang/EdgeMark/issues/new?template=feature_request.md")!) {
-                    Label(l10n["settings.about.requestFeature"], systemImage: "lightbulb")
+                    Label(l10n["settings.about.viewOriginalProject"], systemImage: "arrow.up.right.square")
                 }
             }
 

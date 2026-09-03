@@ -33,8 +33,8 @@ nonisolated enum UpdateInstaller {
         // Phase 5: Copy to temp and strip quarantine
         Log.updates.info("[UpdateInstaller] phase 5: copying to temp")
         let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("EdgeMark")
-        let tempDir = cacheDir.appendingPathComponent("EdgeMarkInstall-\(UUID().uuidString)")
+            .appendingPathComponent("Perch")
+        let tempDir = cacheDir.appendingPathComponent("PerchInstall-\(UUID().uuidString)")
         try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
         let tempApp = tempDir.appendingPathComponent(sourceApp.lastPathComponent)
         try fm.copyItem(at: sourceApp, to: tempApp)

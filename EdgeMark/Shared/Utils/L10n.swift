@@ -35,7 +35,7 @@ final class L10n: @unchecked Sendable {
     }
 
     /// All locale JSON files present in the bundle, with their native-script display name.
-    /// Discovered dynamically — drop a new `<code>.json` into `EdgeMark/Resources/Locales/` and
+    /// Discovered dynamically — drop a new `<code>.json` into `Perch/Resources/Locales/` and
     /// it appears here automatically (Xcode 16 synchronized groups handle bundle inclusion).
     static let availableLocales: [AvailableLocale] = {
         var urls = Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: "Resources/Locales") ?? []
@@ -121,5 +121,5 @@ final class L10n: @unchecked Sendable {
 }
 
 extension Notification.Name {
-    static let localeDidChange = Notification.Name("io.github.ender-wang.EdgeMark.localeDidChange")
+    static let localeDidChange = Notification.Name("io.github.ender-wang.Perch.localeDidChange")
 }

@@ -40,7 +40,7 @@ final class ShortcutManager {
             return
         }
 
-        // Signature: 'EMRK' (EdgeMark)
+        // Signature: 'EMRK' (Perch)
         let hotKeyID = EventHotKeyID(signature: OSType(0x454D_524B), id: 1)
 
         var ref: EventHotKeyRef?

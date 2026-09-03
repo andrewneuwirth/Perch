@@ -6,10 +6,10 @@ import SwiftUI
 
 // MARK: - Image provider
 
-/// Loads EdgeMark asset-dir images for the `![[.STEM/IMG-uuid.ext]]` embed syntax
+/// Loads Perch asset-dir images for the `![[.STEM/IMG-uuid.ext]]` embed syntax
 /// used by the editor's display layer. The on-disk format stays as standard
 /// `![](path)` markdown; MarkdownEditorView converts between the two transparently.
-struct EdgeMarkImageProvider: EmbeddedImageProvider {
+struct PerchImageProvider: EmbeddedImageProvider {
     let noteFolder: String
 
     func image(for request: EmbeddedImageRequest) -> NSImage? {
@@ -96,7 +96,7 @@ struct MarkdownEditorView: View {
             automaticSpellingCorrection: appSettings.automaticSpellingCorrectionEnabled,
         )
         config.services = MarkdownEditorServices(
-            images: EdgeMarkImageProvider(noteFolder: noteFolder),
+            images: PerchImageProvider(noteFolder: noteFolder),
             syntaxHighlighter: HighlighterSwiftBridge(),
             latex: SwiftMathBridge(),
             bus: MarkdownEditorBus(
@@ -213,7 +213,7 @@ struct MarkdownEditorView: View {
     }
 
     /// Convert on-disk `![](. STEM/IMG-uuid.ext)` references to editor embed `![[.STEM/IMG-uuid.ext]]`.
-    /// Only converts EdgeMark-format images (path starts with `.`, filename starts with `IMG-`).
+    /// Only converts Perch-format images (path starts with `.`, filename starts with `IMG-`).
     static func imagesToEmbeds(_ text: String) -> String {
         guard text.contains("![") else { return text }
         let pattern = #"!\[[^\]]*\]\((\.[^/)][^)]+/IMG-[A-Za-z0-9\-]+\.[A-Za-z0-9]+)\)"#
@@ -261,6 +261,6 @@ struct MarkdownEditorView: View {
 // MARK: - Notification names for the editor find bus
 
 extension Notification.Name {
-    static let editorFindScrollToRange = Notification.Name("io.github.ender-wang.EdgeMark.editor.findScrollToRange")
-    static let editorFindClearHighlights = Notification.Name("io.github.ender-wang.EdgeMark.editor.findClearHighlights")
+    static let editorFindScrollToRange = Notification.Name("io.github.ender-wang.Perch.editor.findScrollToRange")
+    static let editorFindClearHighlights = Notification.Name("io.github.ender-wang.Perch.editor.findClearHighlights")
 }

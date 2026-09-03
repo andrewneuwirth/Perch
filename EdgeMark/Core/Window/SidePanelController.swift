@@ -793,7 +793,7 @@ final class SidePanelController: NSWindowController {
 
     /// Reactivate the app that was frontmost before the panel appeared,
     /// so its mouse events go through the global monitor again.
-    /// Skips restoration if another EdgeMark window (e.g. Settings, Update) is key.
+    /// Skips restoration if another Perch window (e.g. Settings, Update) is key.
     private func restorePreviousApp() {
         let hasOtherKeyWindow = NSApp.windows.contains { $0 !== window && $0.isKeyWindow }
         if !hasOtherKeyWindow {

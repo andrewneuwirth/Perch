@@ -1,10 +1,10 @@
 {
-  "app.name": "EdgeMark",
+  "app.name": "Perch",
 
-  "menu.toggle": "Mostrar/ocultar EdgeMark",
+  "menu.toggle": "Mostrar/ocultar Perch",
   "menu.settings": "Ajustes\u2026",
   "menu.checkUpdates": "Buscar actualizaciones\u2026",
-  "menu.quit": "Salir de EdgeMark",
+  "menu.quit": "Salir de Perch",
 
   "common.cancel": "Cancelar",
   "common.delete": "Eliminar",
@@ -72,7 +72,7 @@
   "alert.deleteNote.title": "¿Eliminar nota?",
   "alert.externalChange.title": "Nota modificada externamente",
   "alert.externalChange.message": "Esta nota fue modificada por otra aplicación mientras la editabas. ¿Conservar tus cambios o recargar desde el disco?",
-  "alert.externalChange.keepEdgeMarkEdits": "Conservar mis cambios",
+  "alert.externalChange.keepPerchEdits": "Conservar mis cambios",
   "alert.externalChange.reloadFromDisk": "Recargar desde el disco",
   "alert.emptyTrash.title": "¿Vaciar papelera?",
   "alert.emptyTrash.message": "Los {0} elemento(s) se eliminarán permanentemente. Esta acción no se puede deshacer.",
@@ -92,7 +92,7 @@
   "alert.nameConflict.replaceAll": "Reemplazar todos",
   "alert.nameConflict.skip": "Omitir",
 
-  "home.title": "EdgeMark",
+  "home.title": "Perch",
 
   "noteList.empty.title": "Sin notas",
   "noteList.empty.subtitle": "Toca el icono de lápiz para crear una nota",
@@ -116,7 +116,7 @@
   "trash.daysLeft": "{0}d restantes",
   "trash.from": "de {0}/",
 
-  "settings.windowTitle": "Ajustes de EdgeMark",
+  "settings.windowTitle": "Ajustes de Perch",
   "settings.tab.general": "General",
   "settings.tab.behavior": "Comportamiento",
   "settings.tab.keyboard": "Teclado",
@@ -185,8 +185,8 @@
   "settings.language.system": "Sistema",
 
   "settings.keyboard.globalShortcuts": "Atajos de teclado globales",
-  "settings.keyboard.globalDescription": "Estos atajos de teclado funcionan en todo el sistema, incluso cuando EdgeMark está en segundo plano.",
-  "settings.keyboard.togglePanel": "Mostrar/ocultar EdgeMark",
+  "settings.keyboard.globalDescription": "Estos atajos de teclado funcionan en todo el sistema, incluso cuando Perch está en segundo plano.",
+  "settings.keyboard.togglePanel": "Mostrar/ocultar Perch",
   "settings.keyboard.localShortcuts": "Atajos de teclado locales",
   "settings.keyboard.newNote": "Nueva nota",
   "settings.keyboard.newFolder": "Nueva carpeta",
@@ -229,7 +229,7 @@
   "settings.about.copyright": "© {0} Ender Wang. Licenciado bajo GPLv3.",
 
   "updates.windowTitle": "Actualización de software",
-  "updates.available.title": "EdgeMark — Actualización disponible",
+  "updates.available.title": "Perch — Actualización disponible",
   "updates.available.notification": "La versión {0} está disponible. Haz clic para ver los detalles.",
   "updates.current": "Actual",
   "updates.releaseNotes": "Notas de la versión",
@@ -240,13 +240,13 @@
   "updates.cancel": "Cancelar",
   "updates.downloadComplete": "Descarga completada",
   "updates.installRestart": "Instalar y reiniciar",
-  "updates.willRestart": "EdgeMark se cerrará y reiniciará para completar la actualización.",
+  "updates.willRestart": "Perch se cerrará y reiniciará para completar la actualización.",
   "updates.installing": "Instalando\u2026",
-  "updates.willRestartAuto": "EdgeMark se reiniciará automáticamente.",
+  "updates.willRestartAuto": "Perch se reiniciará automáticamente.",
   "updates.failed": "Error en la actualización",
   "updates.dismiss": "Descartar",
   "updates.upToDate.title": "Estás al día",
-  "updates.upToDate.message": "EdgeMark v{0} es la última versión.",
+  "updates.upToDate.message": "Perch v{0} es la última versión.",
   "updates.checkFailed": "Error al buscar actualizaciones",
   "updates.eta.seconds": "{0}s restantes",
   "updates.eta.minutes": "{0}m restantes",
