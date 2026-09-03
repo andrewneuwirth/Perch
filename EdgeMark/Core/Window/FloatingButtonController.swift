@@ -86,7 +86,8 @@ final class FloatingButtonController {
         case .right: vf.maxX - size
         case .left: vf.minX
         }
-        panel.setFrame(NSRect(x: x, y: vf.minY, width: size, height: size), display: true)
+        // Nudged up 4pt so the button clears the very bottom of the screen.
+        panel.setFrame(NSRect(x: x, y: vf.minY + 4, width: size, height: size), display: true)
     }
 }
 
