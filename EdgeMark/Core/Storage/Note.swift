@@ -1,9 +1,16 @@
 import AppKit
 import Foundation
 
+enum NoteKind: String, Codable {
+    case note
+    case checklist
+}
+
 struct Note: Identifiable {
     let id: UUID
     var title: String
+    /// Regular markdown note or structured checklist. Persisted in the sidecar.
+    var kind: NoteKind
     var content: String
     var createdAt: Date
     var modifiedAt: Date
@@ -55,9 +62,11 @@ struct Note: Identifiable {
         tags: [TagColor] = [],
         trashedAt: Date? = nil,
         savedFilename: String? = nil,
+        kind: NoteKind = .note,
     ) {
         self.id = id
         self.title = title
+        self.kind = kind
         self.content = content
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
@@ -78,6 +87,7 @@ struct Note: Identifiable {
             && lhs.folder == rhs.folder
             && lhs.tags == rhs.tags
             && lhs.trashedAt == rhs.trashedAt
+            && lhs.kind == rhs.kind
     }
 }
 
@@ -88,8 +98,18 @@ extension Note: Hashable {
 }
 
 extension Note {
+    /// Done/total counts for checklist notes; nil for regular notes.
+    var checklistProgress: (done: Int, total: Int)? {
+        guard kind == .checklist else { return nil }
+        let doc = ChecklistDocument.parse(content)
+        return (doc.doneCount, doc.totalCount)
+    }
+
     /// Plain-text preview from the note body, stripping the title heading and markdown syntax.
     var previewText: String {
+        if let p = checklistProgress {
+            return L10n.shared.t("checklist.progress", String(p.done), String(p.total))
+        }
         let lines = content.split(separator: "\n", omittingEmptySubsequences: true)
         let bodyLines = lines.dropFirst()
         let raw = bodyLines.prefix(3).joined(separator: " ")

@@ -5,6 +5,7 @@ import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var panelController: SidePanelController?
+    var floatingButton: FloatingButtonController?
     var statusItem: NSStatusItem?
     private var updateWindowController: UpdateWindowController?
     private var localeObserver: Any?
@@ -24,7 +25,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SidecarMigration.runIfNeeded()
         try? SidecarStore.shared.load()
         panelController?.noteStore.loadFromDisk()
+        FavoritesStore.shared.load()
         ShortcutManager.shared.setup(panelController: panelController!)
+
+        // Floating toggle button (bottom corner, always on top)
+        floatingButton = FloatingButtonController { [weak self] in
+            self?.panelController?.togglePanel()
+        }
+        panelController?.floatingButtonFrameProvider = { [weak self] in self?.floatingButton?.windowFrame }
 
         // Rebuild menu bar when locale changes
         localeObserver = NotificationCenter.default.addObserver(

@@ -30,6 +30,11 @@ final class SidePanelController: NSWindowController {
     private var contentHostingView: NSView?
     /// Retained reference to the drag-to-resize handle for repositioning.
     private var resizeHandleView: ResizeHandleView?
+    /// Top-edge handle for vertical resize.
+    private var topResizeHandleView: TopResizeHandleView?
+    /// Frame of the floating toggle button window, if shown. Used for hit-testing so
+    /// hovering/clicking the button never counts as "outside the panel".
+    var floatingButtonFrameProvider: (() -> NSRect?)?
     let edgeDetector: EdgeDetector
     let noteStore = NoteStore()
     let appSettings = AppSettings.shared
@@ -41,6 +46,11 @@ final class SidePanelController: NSWindowController {
         let visibleFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let panelWidth = ShortcutSettings.shared.panelWidth
         let side = ShortcutSettings.shared.edgeSide
+        let initialHeight = PanelGeometry.resolvedHeight(
+            visibleFrame: visibleFrame,
+            height: ShortcutSettings.shared.panelHeight,
+            bottomInset: Self.bottomInset,
+        )
 
         // Park the window far off-screen so it can't overlap any monitor.
         // Using a large negative coordinate is guaranteed to miss all monitor arrangements.
@@ -51,7 +61,7 @@ final class SidePanelController: NSWindowController {
                 x: startX,
                 y: visibleFrame.minY,
                 width: panelWidth,
-                height: visibleFrame.height,
+                height: initialHeight,
             ),
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
@@ -67,7 +77,7 @@ final class SidePanelController: NSWindowController {
 
         // Container view — sits between the window and the SwiftUI hosting view so we can
         // layer the resize handle on top without interfering with SwiftUI layout.
-        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: panelWidth, height: visibleFrame.height))
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: panelWidth, height: initialHeight))
 
         // Host SwiftUI content — fills the container
         let hostingView = NSHostingView(
@@ -88,9 +98,15 @@ final class SidePanelController: NSWindowController {
         // Resize handle — thin strip on the inner edge
         let handle = ResizeHandleView()
         handle.side = side
-        handle.frame = Self.resizeHandleFrame(for: side, containerWidth: panelWidth, height: visibleFrame.height)
+        handle.frame = Self.resizeHandleFrame(for: side, containerWidth: panelWidth, height: initialHeight)
         handle.autoresizingMask = Self.resizeHandleAutoresizing(for: side)
         containerView.addSubview(handle)
+
+        // Top-edge handle — drag to change the panel height
+        let topHandle = TopResizeHandleView()
+        topHandle.frame = Self.topResizeHandleFrame(containerWidth: panelWidth, containerHeight: initialHeight)
+        topHandle.autoresizingMask = [.width, .minYMargin]
+        containerView.addSubview(topHandle)
 
         window.contentView = containerView
 
@@ -100,9 +116,12 @@ final class SidePanelController: NSWindowController {
 
         contentHostingView = hostingView
         resizeHandleView = handle
+        topResizeHandleView = topHandle
 
         handle.onDrag = { [weak self] newWidth in self?.panelDidResize(to: newWidth) }
         handle.onDragEnded = { [weak self] finalWidth in self?.panelResizeEnded(width: finalWidth) }
+        topHandle.onDrag = { [weak self] newHeight in self?.panelDidResizeHeight(to: newHeight) }
+        topHandle.onDragEnded = { [weak self] in self?.panelResizeHeightEnded() }
 
         // Order the window off-screen immediately so it joins all Spaces.
         // We never orderOut — the window stays ordered (off-screen when hidden)
@@ -240,6 +259,37 @@ final class SidePanelController: NSWindowController {
             name: .panelPinStateChanged,
             object: nil,
         )
+
+        // Panel height / floating button inset changed from Settings
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePanelSizeChanged),
+            name: .panelSizeChanged,
+            object: nil,
+        )
+    }
+
+    /// Height reserved below the panel for the floating toggle button.
+    static var bottomInset: CGFloat {
+        ShortcutSettings.shared.floatingButtonEnabled ? FloatingButtonController.reservedHeight : 0
+    }
+
+    // MARK: - Panel Size Change
+
+    @objc private func handlePanelSizeChanged() {
+        guard let window else { return }
+        let screen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        let side = ShortcutSettings.shared.edgeSide
+        let (shownFrame, _) = panelFrames(visibleFrame: screen.visibleFrame, side: side)
+        if isShown, !isAnimating {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                window.animator().setFrame(shownFrame, display: true)
+            }
+        } else if !isShown {
+            window.setFrame(parkedFrame(panelWidth: shownFrame.width), display: false)
+        }
     }
 
     @available(*, unavailable)
@@ -413,6 +463,7 @@ final class SidePanelController: NSWindowController {
         noteStore.checkForExternalChanges()
 
         isShown = true
+        NotificationCenter.default.post(name: .panelVisibilityChanged, object: nil, userInfo: ["shown": true])
         let gen = animationGeneration &+ 1
         animationGeneration = gen
 
@@ -485,6 +536,7 @@ final class SidePanelController: NSWindowController {
         noteStore.saveDirtyNotes()
         peekCoordinator.dismissNow()
         isShown = false
+        NotificationCenter.default.post(name: .panelVisibilityChanged, object: nil, userInfo: ["shown": false])
         let gen = animationGeneration &+ 1
         animationGeneration = gen
         cancelHideTimer()
@@ -557,7 +609,7 @@ final class SidePanelController: NSWindowController {
         let side = ShortcutSettings.shared.edgeSide
         let targetScreen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
         let maxWidth = targetScreen.visibleFrame.width - 100
-        let clampedWidth = min(max(newWidth, ResizeHandleView.minWidth), maxWidth)
+        let clampedWidth = min(max(newWidth, PanelGeometry.minWidth), maxWidth)
 
         var frame = window.frame
         if side == .right {
@@ -574,32 +626,59 @@ final class SidePanelController: NSWindowController {
         Log.window.info("[SidePanelController] panel resized to \(ShortcutSettings.shared.panelWidth, privacy: .public)pt")
     }
 
+    private func panelDidResizeHeight(to newHeight: CGFloat) {
+        guard let window else { return }
+        let targetScreen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        var frame = window.frame
+        frame.size.height = PanelGeometry.clampedDragHeight(
+            newHeight, frameMinY: frame.minY, visibleFrame: targetScreen.visibleFrame,
+        )
+        window.setFrame(frame, display: true)
+    }
+
+    private func panelResizeHeightEnded() {
+        guard let window else { return }
+        let targetScreen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        let stored = PanelGeometry.storedHeightAfterDrag(
+            frameTop: window.frame.maxY,
+            frameHeight: window.frame.height,
+            visibleFrame: targetScreen.visibleFrame,
+            bottomInset: Self.bottomInset,
+        )
+        // Setting panelHeight posts .panelSizeChanged, which re-applies the frame
+        // (a no-op when unchanged, or snaps to full height when stored == nil).
+        ShortcutSettings.shared.panelHeight = stored
+        let desc = stored.map { "\($0)pt" } ?? "full"
+        Log.window.info("[SidePanelController] panel height set to \(desc, privacy: .public)")
+    }
+
     // MARK: - Frame Calculation
 
     /// A safe off-screen parking position that can't overlap any monitor in any arrangement.
     /// The window is invisible (alphaValue = 0) and ignoresMouseEvents when parked here.
     private func parkedFrame(panelWidth: CGFloat) -> NSRect {
-        NSRect(x: -panelWidth - 1000, y: -10000, width: panelWidth, height: 100)
+        let height = window?.frame.height ?? 100
+        return NSRect(x: -panelWidth - 1000, y: -10000, width: panelWidth, height: height)
     }
 
-    /// Returns (shown, hidden) frames for the given edge side using the persisted panel width.
+    /// Returns (shown, hidden) frames for the given edge side using the persisted panel size.
     private func panelFrames(visibleFrame: NSRect, side: EdgeSide) -> (shown: NSRect, hidden: NSRect) {
-        let width = ShortcutSettings.shared.panelWidth
-        let shown: NSRect
-        let hidden: NSRect
-        switch side {
-        case .right:
-            shown = NSRect(x: visibleFrame.maxX - width, y: visibleFrame.minY,
-                           width: width, height: visibleFrame.height)
-            hidden = NSRect(x: visibleFrame.maxX, y: visibleFrame.minY,
-                            width: width, height: visibleFrame.height)
-        case .left:
-            shown = NSRect(x: visibleFrame.minX, y: visibleFrame.minY,
-                           width: width, height: visibleFrame.height)
-            hidden = NSRect(x: visibleFrame.minX - width, y: visibleFrame.minY,
-                            width: width, height: visibleFrame.height)
-        }
-        return (shown, hidden)
+        let frames = PanelGeometry.frames(
+            visibleFrame: visibleFrame,
+            side: side == .right ? .right : .left,
+            width: ShortcutSettings.shared.panelWidth,
+            height: ShortcutSettings.shared.panelHeight,
+            bottomInset: Self.bottomInset,
+        )
+        return (frames.shown, frames.hidden)
+    }
+
+    /// Frame of the top-edge resize handle. Centered on the visible card top edge
+    /// (PageLayout uses 8pt top padding).
+    private static func topResizeHandleFrame(containerWidth: CGFloat, containerHeight: CGFloat) -> NSRect {
+        let cardInset: CGFloat = 8
+        let h = TopResizeHandleView.handleHeight
+        return NSRect(x: 0, y: containerHeight - cardInset - h / 2, width: containerWidth, height: h)
     }
 
     /// Corner mask for the given edge side.
@@ -675,6 +754,8 @@ final class SidePanelController: NSWindowController {
                    width: gap, height: window.frame.height)
         }
         if gapStrip.contains(cursor) { return true }
+        // 4. Over the floating toggle button
+        if let buttonFrame = floatingButtonFrameProvider?(), buttonFrame.contains(cursor) { return true }
         return false
     }
 
@@ -742,7 +823,7 @@ final class SidePanelController: NSWindowController {
 /// Invisible 8pt-wide strip centered on the panel's visible inner card edge. Dragging it resizes the panel.
 private final class ResizeHandleView: NSView {
     static let handleWidth: CGFloat = 8
-    static let minWidth: CGFloat = 400
+    static let minWidth: CGFloat = PanelGeometry.minWidth
 
     var side: EdgeSide = .right
     var onDrag: ((CGFloat) -> Void)?
@@ -794,5 +875,51 @@ private final class ResizeHandleView: NSView {
 
     override func cursorUpdate(with _: NSEvent) {
         NSCursor.resizeLeftRight.set()
+    }
+}
+
+// MARK: - TopResizeHandleView
+
+/// Invisible 8pt-tall strip centered on the panel's visible top card edge. Dragging it changes the panel height.
+private final class TopResizeHandleView: NSView {
+    static let handleHeight: CGFloat = 8
+
+    var onDrag: ((CGFloat) -> Void)?
+    var onDragEnded: (() -> Void)?
+
+    private var dragStartY: CGFloat = 0
+    private var dragStartHeight: CGFloat = 0
+
+    override func mouseDown(with _: NSEvent) {
+        dragStartY = NSEvent.mouseLocation.y
+        dragStartHeight = window?.frame.height ?? 0
+        Log.window.debug("[TopResizeHandleView] drag began — startHeight: \(self.dragStartHeight, privacy: .public)pt")
+    }
+
+    override func mouseDragged(with _: NSEvent) {
+        let deltaY = NSEvent.mouseLocation.y - dragStartY
+        onDrag?(dragStartHeight + deltaY)
+    }
+
+    override func mouseUp(with _: NSEvent) {
+        onDragEnded?()
+        NSCursor.arrow.set()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for ta in trackingAreas {
+            removeTrackingArea(ta)
+        }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.cursorUpdate, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil,
+        ))
+    }
+
+    override func cursorUpdate(with _: NSEvent) {
+        NSCursor.resizeUpDown.set()
     }
 }

@@ -310,6 +310,7 @@ enum FileStorage {
                 modifiedAt: note.modifiedAt,
                 savedAt: savedAt,
                 tags: note.tags.map(\.rawValue),
+                kind: note.kind == .note ? nil : note.kind.rawValue,
             ),
             for: note.id,
         )
@@ -419,6 +420,7 @@ enum FileStorage {
                 createdAt: note.createdAt,
                 modifiedAt: note.modifiedAt,
                 tags: note.tags.map(\.rawValue),
+                kind: note.kind == .note ? nil : note.kind.rawValue,
             ),
             for: note.id,
         )
@@ -464,6 +466,7 @@ enum FileStorage {
                 modifiedAt: note.modifiedAt,
                 savedAt: savedAt,
                 tags: note.tags.map(\.rawValue),
+                kind: note.kind == .note ? nil : note.kind.rawValue,
             ),
             for: note.id,
         )
@@ -555,6 +558,7 @@ enum FileStorage {
                     createdAt: entry.createdAt,
                     modifiedAt: entry.modifiedAt,
                     tags: entry.tags,
+                    kind: entry.kind,
                 ), for: noteID)
             }
         }
@@ -611,6 +615,7 @@ enum FileStorage {
                     modifiedAt: entry.modifiedAt,
                     savedAt: actualMtime,
                     tags: entry.tags,
+                    kind: entry.kind,
                 ), for: noteID)
             }
         }
@@ -773,6 +778,7 @@ enum FileStorage {
                     tags: tags,
                     trashedAt: entry.trashedAt,
                     savedFilename: filename,
+                    kind: entry.kind.flatMap { NoteKind(rawValue: $0) } ?? .note,
                 )
             }
         } else {
@@ -790,6 +796,7 @@ enum FileStorage {
                     folder: folder,
                     tags: tags,
                     savedFilename: filename,
+                    kind: entry.kind.flatMap { NoteKind(rawValue: $0) } ?? .note,
                 )
             }
         }

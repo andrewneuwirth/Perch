@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct BehaviorSettingsTab: View {
@@ -14,6 +15,8 @@ struct BehaviorSettingsTab: View {
     @State private var editorSwipeToNavigateEnabled: Bool
     @State private var swipeGestureSensitivity: Double
     @State private var animationStyle: AnimationStyle
+    @State private var fullHeight: Bool
+    @State private var floatingButtonEnabled: Bool
 
     init() {
         let s = ShortcutSettings.shared
@@ -28,6 +31,8 @@ struct BehaviorSettingsTab: View {
         _editorSwipeToNavigateEnabled = State(initialValue: s.editorSwipeToNavigateEnabled)
         _swipeGestureSensitivity = State(initialValue: s.swipeGestureSensitivity)
         _animationStyle = State(initialValue: s.animationStyle)
+        _fullHeight = State(initialValue: s.panelHeight == nil)
+        _floatingButtonEnabled = State(initialValue: s.floatingButtonEnabled)
     }
 
     var body: some View {
@@ -62,6 +67,36 @@ struct BehaviorSettingsTab: View {
                 }
             } header: {
                 Label(l10n["settings.general.panelPosition"], systemImage: "sidebar.right")
+            }
+
+            Section {
+                Toggle(l10n["settings.panelSize.fullHeight"], isOn: $fullHeight)
+                    .onChange(of: fullHeight) { _, on in
+                        if on {
+                            ShortcutSettings.shared.panelHeight = nil
+                        } else {
+                            let screenHeight = NSScreen.main?.visibleFrame.height ?? 900
+                            ShortcutSettings.shared.panelHeight = (screenHeight * 0.6).rounded()
+                        }
+                    }
+
+                Text(l10n["settings.panelSize.fullHeightNote"])
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle(l10n["settings.panelSize.floatingButton"], isOn: $floatingButtonEnabled)
+                    .onChange(of: floatingButtonEnabled) { _, v in
+                        ShortcutSettings.shared.floatingButtonEnabled = v
+                    }
+
+                Text(l10n["settings.panelSize.floatingButtonNote"])
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Label(l10n["settings.panelSize.section"], systemImage: "arrow.up.and.down.square")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .panelSizeChanged)) { _ in
+                fullHeight = ShortcutSettings.shared.panelHeight == nil
             }
 
             Section {

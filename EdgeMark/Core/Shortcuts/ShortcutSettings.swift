@@ -216,6 +216,28 @@ final class ShortcutSettings {
         didSet { UserDefaults.standard.set(Double(panelWidth), forKey: panelWidthKey) }
     }
 
+    /// Height of the side panel in points, measured from the bottom of the screen's
+    /// visible frame. nil = full height (classic behaviour).
+    var panelHeight: CGFloat? {
+        didSet {
+            if let h = panelHeight {
+                UserDefaults.standard.set(Double(h), forKey: panelHeightKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: panelHeightKey)
+            }
+            NotificationCenter.default.post(name: .panelSizeChanged, object: nil)
+        }
+    }
+
+    /// Whether the always-on-top floating toggle button is shown in the bottom corner.
+    var floatingButtonEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(floatingButtonEnabled, forKey: floatingButtonEnabledKey)
+            NotificationCenter.default.post(name: .floatingButtonSettingChanged, object: nil)
+            NotificationCenter.default.post(name: .panelSizeChanged, object: nil)
+        }
+    }
+
     /// Panel show/hide animation style.
     var animationStyle: AnimationStyle {
         didSet { UserDefaults.standard.set(animationStyle.rawValue, forKey: animationStyleKey) }
@@ -276,6 +298,8 @@ final class ShortcutSettings {
     private let appearanceModeKey = "appearanceMode"
     private let animationStyleKey = "animationStyle"
     private let panelWidthKey = "panelWidth"
+    private let panelHeightKey = "panelHeight"
+    private let floatingButtonEnabledKey = "floatingButtonEnabled"
 
     // MARK: - Init
 
@@ -293,7 +317,7 @@ final class ShortcutSettings {
         } else {
             edgeSide = .right
         }
-        edgeActivationEnabled = UserDefaults.standard.object(forKey: edgeActivationEnabledKey) as? Bool ?? true
+        edgeActivationEnabled = UserDefaults.standard.object(forKey: edgeActivationEnabledKey) as? Bool ?? false
         excludeCorners = UserDefaults.standard.object(forKey: excludeCornersKey) as? Bool ?? true
         hideOnClickOutside = UserDefaults.standard.object(forKey: hideOnClickOutsideKey) as? Bool ?? true
         isPanelPinned = false
@@ -329,6 +353,9 @@ final class ShortcutSettings {
         // Panel width (stored as Double since UserDefaults doesn't have CGFloat)
         let savedWidth = UserDefaults.standard.object(forKey: panelWidthKey) as? Double
         panelWidth = savedWidth.map { CGFloat($0) } ?? 400
+        let savedHeight = UserDefaults.standard.object(forKey: panelHeightKey) as? Double
+        panelHeight = savedHeight.map { CGFloat($0) }
+        floatingButtonEnabled = UserDefaults.standard.object(forKey: floatingButtonEnabledKey) as? Bool ?? true
 
         loadShortcuts()
         loadLocalShortcuts()
@@ -412,4 +439,9 @@ final class ShortcutSettings {
 extension Notification.Name {
     static let shortcutSettingsChanged = Notification.Name("shortcutSettingsChanged")
     static let panelPinStateChanged = Notification.Name("panelPinStateChanged")
+    /// Panel height or floating-button inset changed — controller should re-lay out.
+    static let panelSizeChanged = Notification.Name("panelSizeChanged")
+    static let floatingButtonSettingChanged = Notification.Name("floatingButtonSettingChanged")
+    /// Posted by SidePanelController whenever the panel becomes shown or hidden. userInfo["shown"] = Bool.
+    static let panelVisibilityChanged = Notification.Name("panelVisibilityChanged")
 }

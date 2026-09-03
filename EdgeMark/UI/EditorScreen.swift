@@ -202,7 +202,7 @@ private struct CopyMenuButton: View {
 // MARK: - Delete Icon Button
 
 /// Trash icon that turns red on hover.
-private struct DeleteIconButton: View {
+struct DeleteIconButton: View {
     let action: () -> Void
 
     @State private var isHovered = false
@@ -232,7 +232,7 @@ private struct DeleteIconButton: View {
 // MARK: - Date Label View
 
 /// Icon + date text in a compact row with hover tooltip.
-private struct DateLabelView: View {
+struct DateLabelView: View {
     let systemName: String
     let date: String
     let tooltip: String

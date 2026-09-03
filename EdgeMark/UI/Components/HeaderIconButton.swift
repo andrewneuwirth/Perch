@@ -15,7 +15,7 @@ struct HeaderIconButton: View {
                 .foregroundStyle(isHovered ? .primary : .secondary)
                 .frame(width: 28, height: 28)
                 .background {
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 7)
                         .fill(.primary.opacity(isHovered ? 0.1 : 0))
                 }
                 .contentShape(Rectangle())

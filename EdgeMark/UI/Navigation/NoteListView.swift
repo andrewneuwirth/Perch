@@ -80,6 +80,13 @@ struct NoteListView: View {
                 }
 
                 HeaderIconButton(
+                    systemName: "checklist",
+                    help: l10n["common.newChecklist"],
+                ) {
+                    createChecklist()
+                }
+
+                HeaderIconButton(
                     systemName: "square.and.pencil",
                     help: l10n["common.newNote"],
                 ) {
@@ -357,6 +364,13 @@ struct NoteListView: View {
     private func createNote() {
         let folder = noteStore.selectedFolder?.name ?? ""
         let note = noteStore.createNote(in: folder)
+        noteRename.beginCreate(note: note)
+        DispatchQueue.main.async { isNoteRenameFocused = true }
+    }
+
+    private func createChecklist() {
+        let folder = noteStore.selectedFolder?.name ?? ""
+        let note = noteStore.createChecklist(in: folder)
         noteRename.beginCreate(note: note)
         DispatchQueue.main.async { isNoteRenameFocused = true }
     }

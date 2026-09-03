@@ -58,10 +58,16 @@ struct ContentView: View {
                     .transition(pageTransition)
             }
 
-            if showEditor {
-                EditorScreen()
-                    .id(noteStore.selectedNote?.id)
-                    .transition(pageTransition)
+            if showEditor, let note = noteStore.selectedNote {
+                if note.kind == .checklist {
+                    ChecklistScreen(note: note)
+                        .id(note.id)
+                        .transition(pageTransition)
+                } else {
+                    EditorScreen()
+                        .id(note.id)
+                        .transition(pageTransition)
+                }
             }
 
             if noteStore.showTrash {

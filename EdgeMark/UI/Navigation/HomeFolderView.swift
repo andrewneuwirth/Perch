@@ -108,6 +108,13 @@ struct HomeFolderView: View {
             header
         } content: {
             VStack(spacing: 0) {
+                if noteStore.showFavorites, !isSearching {
+                    FavoritesSectionView()
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    Divider()
+                        .padding(.horizontal, 12)
+                }
+
                 ZStack {
                     folderList
                         .opacity(isSearching ? 0 : 1)
@@ -184,6 +191,8 @@ struct HomeFolderView: View {
 
                 Spacer()
 
+                FavoritesButton()
+
                 PinButton()
 
                 HeaderIconButton(
@@ -199,6 +208,13 @@ struct HomeFolderView: View {
                     help: l10n["common.newFolder"],
                 ) {
                     startCreatingFolder()
+                }
+
+                HeaderIconButton(
+                    systemName: "checklist",
+                    help: l10n["common.newChecklist"],
+                ) {
+                    createRootChecklist()
                 }
 
                 HeaderIconButton(
@@ -659,6 +675,12 @@ struct HomeFolderView: View {
         DispatchQueue.main.async { isNoteRenameFocused = true }
     }
 
+    private func createRootChecklist() {
+        let note = noteStore.createChecklist(in: "")
+        noteRename.beginCreate(note: note)
+        DispatchQueue.main.async { isNoteRenameFocused = true }
+    }
+
     private func startCreatingFolder() {
         folderRename.beginCreate()
         isFolderFieldFocused = true
@@ -775,9 +797,9 @@ struct NoteRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "doc.text")
+            Image(systemName: note.kind == .checklist ? "checklist" : "doc.text")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(note.kind == .checklist ? Color.accentColor : .secondary)
                 .frame(width: iconWidth)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -796,7 +818,9 @@ struct NoteRowView: View {
                         .foregroundStyle(.tertiary)
                 }
 
-                if !note.previewText.isEmpty {
+                if note.kind == .checklist, let p = note.checklistProgress {
+                    ChecklistProgressBadge(done: p.done, total: p.total)
+                } else if !note.previewText.isEmpty {
                     Text(note.previewText)
                         .font(.caption)
                         .foregroundStyle(.secondary)

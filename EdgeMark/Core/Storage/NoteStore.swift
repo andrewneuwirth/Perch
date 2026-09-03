@@ -13,6 +13,8 @@ final class NoteStore {
     var selectedFolder: Folder?
     var selectedNote: Note?
     var showTrash = false
+    /// Whether the Favorites section is expanded on the Home screen. Not persisted.
+    var showFavorites = false
 
     // MARK: - List Selection (multi-select)
 
@@ -326,6 +328,7 @@ final class NoteStore {
                         folder: note.folder,
                         trashedAt: note.trashedAt,
                         savedFilename: note.savedFilename,
+                        kind: note.kind,
                     )
                     do {
                         try FileStorage.writeNote(fixed) // return value intentionally discarded (dedup path)
@@ -341,6 +344,7 @@ final class NoteStore {
             autoPurgeExpiredTrash()
             diskFolderNames = Set((try? FileStorage.discoverFolders()) ?? [])
             refreshFolders()
+            seedDefaultChecklistIfNeeded()
             let noteCount = notes.count
             let trashCount = trashedNotes.count + trashedFolders.count
             Log.storage.info("[NoteStore] loaded \(noteCount) notes, \(trashCount) trashed items")
@@ -491,20 +495,52 @@ final class NoteStore {
     // MARK: - Note CRUD
 
     func createNote(in folder: String = "") -> Note {
-        var title = "Untitled"
+        createNote(in: folder, kind: .note, baseTitle: "Untitled", content: nil)
+    }
+
+    /// Create a new empty checklist note.
+    func createChecklist(in folder: String = "") -> Note {
+        createNote(in: folder, kind: .checklist, baseTitle: "Checklist", content: nil)
+    }
+
+    /// On the first launch with no checklists, create a "Classes" checklist seeded with
+    /// the default course groups. A UserDefaults flag prevents re-seeding after deletion.
+    private func seedDefaultChecklistIfNeeded() {
+        let flag = "didSeedDefaultChecklist"
+        guard !UserDefaults.standard.bool(forKey: flag) else { return }
+        guard !notes.contains(where: { $0.kind == .checklist }) else {
+            UserDefaults.standard.set(true, forKey: flag)
+            return
+        }
+        let doc = ChecklistDocument.seededClasses()
+        _ = createNote(in: "", kind: .checklist, baseTitle: doc.title, content: doc.serialize())
+        UserDefaults.standard.set(true, forKey: flag)
+        Log.storage.info("[NoteStore] seeded default Classes checklist")
+    }
+
+    private func createNote(in folder: String, kind: NoteKind, baseTitle: String, content: String?) -> Note {
+        var title = baseTitle
         var counter = 2
         while noteTitleExists(title, in: folder) {
-            title = "Untitled \(counter)"
+            title = "\(baseTitle) \(counter)"
             counter += 1
         }
         let now = Date()
+        var body = content ?? "# \(title)\n\n"
+        if content != nil, title != baseTitle {
+            // Title was de-duplicated — keep the heading in sync
+            var doc = ChecklistDocument.parse(body)
+            doc.title = title
+            body = doc.serialize()
+        }
         var note = Note(
             id: UUID(),
             title: title,
-            content: "# \(title)\n\n",
+            content: body,
             createdAt: now,
             modifiedAt: now,
             folder: folder,
+            kind: kind,
         )
         do {
             let result = try FileStorage.writeNote(note)

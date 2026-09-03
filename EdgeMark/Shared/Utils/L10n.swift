@@ -95,31 +95,27 @@ final class L10n: @unchecked Sendable {
 
     private func loadStrings() {
         let resolved = resolveLocale()
-
-        guard let url = Bundle.main.url(
-            forResource: resolved,
-            withExtension: "json",
-            subdirectory: "Resources/Locales",
-        ) else {
-            // Fallback: try without subdirectory (flat bundle)
-            if let fallbackURL = Bundle.main.url(forResource: resolved, withExtension: "json") {
-                loadFromURL(fallbackURL)
-            }
-            return
+        // English is the base; the selected locale overlays it so keys that haven't
+        // been translated yet still render in English instead of as raw keys.
+        var merged = Self.stringsFile(for: "en") ?? [:]
+        if resolved != "en", let localized = Self.stringsFile(for: resolved) {
+            merged.merge(localized) { _, new in new }
         }
-        loadFromURL(url)
+        strings = merged
     }
 
-    private func loadFromURL(_ url: URL) {
+    private static func stringsFile(for code: String) -> [String: String]? {
+        let url = Bundle.main.url(forResource: code, withExtension: "json", subdirectory: "Resources/Locales")
+            ?? Bundle.main.url(forResource: code, withExtension: "json") // flat bundle fallback
+        guard let url else { return nil }
         do {
             let data = try Data(contentsOf: url)
-            if let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] {
-                strings = dict
-            }
+            return try JSONSerialization.jsonObject(with: data) as? [String: String]
         } catch {
             let path = url.path
             let desc = error.localizedDescription
             Log.app.error("[L10n] loadStrings failed from \(path, privacy: .public) — \(desc, privacy: .public)")
+            return nil
         }
     }
 }
