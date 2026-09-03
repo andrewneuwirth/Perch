@@ -56,7 +56,7 @@ final class SidePanelController: NSWindowController {
         let initialHeight = PanelGeometry.resolvedHeight(
             visibleFrame: visibleFrame,
             height: ShortcutSettings.shared.panelHeight,
-            bottomInset: Self.bottomInset,
+            bottomInset: Self.bottomInset(for: NSScreen.main),
         )
 
         // Park the window far off-screen so it can't overlap any monitor.
@@ -306,7 +306,7 @@ final class SidePanelController: NSWindowController {
         let side = ShortcutSettings.shared.edgeSide
         let dockedFrames = PanelGeometry.frames(
             visibleFrame: vf, side: side == .right ? .right : .left,
-            width: window.frame.width, height: ShortcutSettings.shared.panelHeight, bottomInset: Self.bottomInset,
+            width: window.frame.width, height: ShortcutSettings.shared.panelHeight, bottomInset: Self.bottomInset(for: screen),
         )
         let outerDistance = switch side {
         case .right: abs(vf.maxX - window.frame.maxX)
@@ -333,9 +333,12 @@ final class SidePanelController: NSWindowController {
         handlePanelSizeChanged()
     }
 
-    /// Height reserved below the panel for the floating toggle button.
-    static var bottomInset: CGFloat {
-        ShortcutSettings.shared.floatingButtonEnabled ? FloatingButtonController.reservedHeight : 0
+    /// Height reserved below the panel (above the screen's visible frame) for the floating
+    /// toggle button, plus room for the Dock if it could appear on this screen.
+    static func bottomInset(for screen: NSScreen?) -> CGFloat {
+        guard ShortcutSettings.shared.floatingButtonEnabled else { return 0 }
+        let clearance = screen.map { FloatingButtonController.dockClearance(for: $0) } ?? 0
+        return FloatingButtonController.reservedHeight + clearance
     }
 
     // MARK: - Panel Size Change
@@ -689,24 +692,25 @@ final class SidePanelController: NSWindowController {
         let targetScreen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
         let settings = ShortcutSettings.shared
         settings.panelWidth = window.frame.width
+        let inset = Self.bottomInset(for: targetScreen)
         if settings.panelOrigin != nil {
             settings.panelOrigin = window.frame.origin
-            settings.panelHeight = window.frame.height + Self.bottomInset
+            settings.panelHeight = window.frame.height + inset
         } else {
             let docked = PanelGeometry.frames(
                 visibleFrame: targetScreen.visibleFrame, side: settings.edgeSide == .right ? .right : .left,
-                width: window.frame.width, height: settings.panelHeight, bottomInset: Self.bottomInset,
+                width: window.frame.width, height: settings.panelHeight, bottomInset: inset,
             ).shown
             if abs(window.frame.minY - docked.minY) > 1 {
                 // Bottom edge was dragged while docked — the panel is now free-floating.
                 settings.panelOrigin = window.frame.origin
-                settings.panelHeight = window.frame.height + Self.bottomInset
+                settings.panelHeight = window.frame.height + inset
             } else {
                 settings.panelHeight = PanelGeometry.storedHeightAfterDrag(
                     frameTop: window.frame.maxY,
                     frameHeight: window.frame.height,
                     visibleFrame: targetScreen.visibleFrame,
-                    bottomInset: Self.bottomInset,
+                    bottomInset: inset,
                 )
             }
         }
@@ -734,18 +738,19 @@ final class SidePanelController: NSWindowController {
         if let origin = ShortcutSettings.shared.panelOrigin {
             let screen = NSScreen.screens.first { $0.frame.contains(origin) } ?? NSScreen.main
             let vf = screen?.visibleFrame ?? visibleFrame
-            let height = PanelGeometry.resolvedHeight(visibleFrame: vf, height: ShortcutSettings.shared.panelHeight, bottomInset: Self.bottomInset)
+            let height = PanelGeometry.resolvedHeight(visibleFrame: vf, height: ShortcutSettings.shared.panelHeight, bottomInset: Self.bottomInset(for: screen))
             var frame = NSRect(origin: origin, size: NSSize(width: width, height: height))
             frame.origin.x = min(max(frame.origin.x, vf.minX), vf.maxX - frame.width)
             frame.origin.y = min(max(frame.origin.y, vf.minY), vf.maxY - frame.height)
             return (frame, frame)
         }
+        let screen = NSScreen.screens.first { $0.visibleFrame == visibleFrame } ?? NSScreen.main
         let frames = PanelGeometry.frames(
             visibleFrame: visibleFrame,
             side: side == .right ? .right : .left,
             width: width,
             height: ShortcutSettings.shared.panelHeight,
-            bottomInset: Self.bottomInset,
+            bottomInset: Self.bottomInset(for: screen),
         )
         return (frames.shown, frames.hidden)
     }

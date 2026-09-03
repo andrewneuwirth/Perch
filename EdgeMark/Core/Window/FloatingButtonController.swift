@@ -59,6 +59,14 @@ final class FloatingButtonController {
         observers.append(nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.reposition()
         })
+        // The Dock can hop between displays without a screen-parameters event; re-check on
+        // Space switches and whenever the panel shows or hides.
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.reposition()
+        })
+        observers.append(nc.addObserver(forName: .panelVisibilityChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.reposition()
+        })
 
         applyEnabledState()
     }
@@ -76,18 +84,42 @@ final class FloatingButtonController {
         }
     }
 
-    /// Dock the window in the bottom corner of the main screen's visible frame.
-    /// The 44pt button is centred in the 60pt window, leaving an 8pt margin to both screen edges.
+    /// Dock the window in the bottom corner of the main screen, above wherever the Dock
+    /// could appear. The 44pt button is centred in the 60pt window (8pt side margin).
     func reposition() {
-        let screen = NSScreen.main ?? NSScreen.screens.first
-        guard let vf = screen?.visibleFrame else { return }
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        let vf = screen.visibleFrame
         let size = Self.windowSize
         let x: CGFloat = switch ShortcutSettings.shared.edgeSide {
         case .right: vf.maxX - size
         case .left: vf.minX
         }
-        // Nudged up 4pt so the button clears the very bottom of the screen.
-        panel.setFrame(NSRect(x: x, y: vf.minY + 4, width: size, height: size), display: true)
+        let y = vf.minY + Self.dockClearance(for: screen) + 4
+        panel.setFrame(NSRect(x: x, y: y, width: size, height: size), display: true)
+    }
+
+    // MARK: - Dock avoidance
+
+    /// Height of the bottom Dock. macOS moves the Dock between displays and, when
+    /// auto-hide is on, reserves no space for it — so take the largest Dock inset any
+    /// screen currently reports, falling back to an estimate from the Dock's tile size.
+    static func dockHeight() -> CGFloat {
+        let reported = NSScreen.screens.map { $0.visibleFrame.minY - $0.frame.minY }.max() ?? 0
+        if reported > 0 { return reported }
+        guard let dock = UserDefaults(suiteName: "com.apple.dock") else { return 0 }
+        let orientation = dock.string(forKey: "orientation") ?? "bottom"
+        guard orientation == "bottom" else { return 0 }
+        let autohide = dock.bool(forKey: "autohide")
+        guard autohide else { return 0 }
+        let tile = dock.object(forKey: "tilesize") as? Double ?? 48
+        return CGFloat(tile) + 20
+    }
+
+    /// Extra space (above the screen's visible frame) needed on this screen to stay
+    /// clear of the Dock if it appears there.
+    static func dockClearance(for screen: NSScreen) -> CGFloat {
+        let alreadyReserved = screen.visibleFrame.minY - screen.frame.minY
+        return max(0, dockHeight() - alreadyReserved)
     }
 }
 
