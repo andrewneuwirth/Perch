@@ -292,6 +292,14 @@ final class SidePanelController: NSWindowController {
             name: .panelDockRequested,
             object: nil,
         )
+
+        NotificationCenter.default.addObserver(
+            forName: .noteToggleDoneRequested, object: nil, queue: .main,
+        ) { [weak self] notification in
+            guard let self, let id = notification.object as? UUID,
+                  let note = noteStore.notes.first(where: { $0.id == id }) else { return }
+            noteStore.toggleDone(note)
+        }
     }
 
     // MARK: - Move

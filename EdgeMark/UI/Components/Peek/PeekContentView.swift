@@ -108,36 +108,56 @@ struct PeekContentView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// Compact row for a child note inside a folder preview. Read-only — no
-    /// click handler, no hover highlight — but matches the NoteRowView look
-    /// so the preview reads as the same list the user would see on open.
+    /// Compact row for a child note inside a folder preview. Matches NoteRowView:
+    /// check marker, wrapping title, done styling. Toggling posts a request that the
+    /// note store handles, since the peek window has no store in its environment.
     private func folderNoteRow(_ note: Note) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "doc.text")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .frame(width: 22)
+        PeekNoteRow(note: note)
+    }
+}
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
+private struct PeekNoteRow: View {
+    let note: Note
+    @State private var isDone: Bool
+
+    init(note: Note) {
+        self.note = note
+        _isDone = State(initialValue: note.isDone)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            CheckMarkerView(isDone: isDone, size: 20) {
+                isDone.toggle()
+                NotificationCenter.default.post(name: .noteToggleDoneRequested, object: note.id)
+            }
+            .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline) {
                     TagDotsView(tags: note.tags)
-                    Text(note.title.isEmpty ? l10n["common.untitled"] : note.title)
+                    Text(note.title.isEmpty ? L10n.shared["common.untitled"] : note.title)
                         .font(.body)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Spacer()
+                        .foregroundStyle(isDone ? .secondary : .primary)
+                        .strikethrough(isDone, color: .secondary)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
                     Text(note.modifiedAt.homeDisplayFormat)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                        .fixedSize()
                 }
                 if !note.previewText.isEmpty {
                     Text(note.previewText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
+        .opacity(isDone ? 0.7 : 1)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)

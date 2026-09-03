@@ -347,6 +347,7 @@ final class NoteStore {
             diskFolderNames = Set((try? FileStorage.discoverFolders()) ?? [])
             refreshFolders()
             seedDefaultClassFoldersIfNeeded()
+            convertEmptyLegacyChecklists()
             let noteCount = notes.count
             let trashCount = trashedNotes.count + trashedFolders.count
             Log.storage.info("[NoteStore] loaded \(noteCount) notes, \(trashCount) trashed items")
@@ -506,6 +507,17 @@ final class NoteStore {
         notes[index].isDone.toggle()
         FileStorage.updateSidecarFlags(for: notes[index])
         if selectedNote?.id == note.id { selectedNote = notes[index] }
+    }
+
+    /// A checklist with no items or groups is just a titled page — treat it as a note.
+    private func convertEmptyLegacyChecklists() {
+        for i in notes.indices where notes[i].kind == .checklist {
+            let doc = ChecklistDocument.parse(notes[i].content)
+            if doc.totalCount == 0, doc.groups.isEmpty {
+                notes[i].kind = .note
+                FileStorage.updateSidecarFlags(for: notes[i])
+            }
+        }
     }
 
     /// Turn a legacy checklist into a regular note. Its markdown task list keeps working in the editor.

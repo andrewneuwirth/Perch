@@ -112,7 +112,7 @@ extension Note {
 
     /// Plain-text preview from the note body, stripping the title heading and markdown syntax.
     var previewText: String {
-        if let p = checklistProgress {
+        if let p = checklistProgress, p.total > 0 {
             return L10n.shared.t("checklist.progress", String(p.done), String(p.total))
         }
         let lines = content.split(separator: "\n", omittingEmptySubsequences: true)

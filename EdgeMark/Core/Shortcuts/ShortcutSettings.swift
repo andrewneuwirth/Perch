@@ -465,6 +465,8 @@ extension Notification.Name {
     static let floatingButtonSettingChanged = Notification.Name("floatingButtonSettingChanged")
     /// Ask the panel to return to its docked edge position.
     static let panelDockRequested = Notification.Name("panelDockRequested")
+    /// A view without store access (peek window) asks to toggle a note's done state. object = note UUID.
+    static let noteToggleDoneRequested = Notification.Name("noteToggleDoneRequested")
     /// Posted by SidePanelController whenever the panel becomes shown or hidden. userInfo["shown"] = Bool.
     static let panelVisibilityChanged = Notification.Name("panelVisibilityChanged")
 }
