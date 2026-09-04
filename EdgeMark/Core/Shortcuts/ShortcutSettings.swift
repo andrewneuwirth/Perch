@@ -159,6 +159,17 @@ final class ShortcutSettings {
         }
     }
 
+    /// Whether tapping the right Option key (alone, released cleanly) toggles the panel.
+    /// A second global toggle alongside `togglePanelShortcut` — useful as a one-key
+    /// alternative to a modifier chord, in the spirit of Wispr Flow's Globe-key tap
+    /// (which Perch avoids reusing since it's already claimed by that app).
+    var rightOptionToggleEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(rightOptionToggleEnabled, forKey: rightOptionToggleEnabledKey)
+            NotificationCenter.default.post(name: .shortcutSettingsChanged, object: nil)
+        }
+    }
+
     /// Whether edge activation (mouse hover to trigger) is enabled.
     var edgeActivationEnabled: Bool {
         didSet { UserDefaults.standard.set(edgeActivationEnabled, forKey: edgeActivationEnabledKey) }
@@ -300,6 +311,7 @@ final class ShortcutSettings {
     private let activationDelayKey = "activationDelay"
     private let edgeSideKey = "edgeSide"
     private let edgeActivationEnabledKey = "edgeActivationEnabled"
+    private let rightOptionToggleEnabledKey = "rightOptionToggleEnabled"
     private let excludeCornersKey = "excludeCorners"
     private let hideOnClickOutsideKey = "hideOnClickOutside"
     private let isPanelPinnedKey = "isPanelPinned"
@@ -334,6 +346,7 @@ final class ShortcutSettings {
             edgeSide = .right
         }
         edgeActivationEnabled = UserDefaults.standard.object(forKey: edgeActivationEnabledKey) as? Bool ?? false
+        rightOptionToggleEnabled = UserDefaults.standard.object(forKey: rightOptionToggleEnabledKey) as? Bool ?? true
         excludeCorners = UserDefaults.standard.object(forKey: excludeCornersKey) as? Bool ?? true
         hideOnClickOutside = UserDefaults.standard.object(forKey: hideOnClickOutsideKey) as? Bool ?? true
         isPanelPinned = false

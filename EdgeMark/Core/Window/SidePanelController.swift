@@ -36,6 +36,7 @@ final class SidePanelController: NSWindowController {
     /// hovering/clicking the button never counts as "outside the panel".
     var floatingButtonFrameProvider: (() -> NSRect?)?
     let edgeDetector: EdgeDetector
+    private let specialKeyMonitor = SpecialKeyMonitor()
     let noteStore = NoteStore()
     let appSettings = AppSettings.shared
     private let peekCoordinator = PeekCoordinator()
@@ -145,6 +146,11 @@ final class SidePanelController: NSWindowController {
             self?.showPanel(on: screen)
         }
         edgeDetector.startMonitoring()
+
+        specialKeyMonitor.onTapped = { [weak self] in
+            self?.togglePanel()
+        }
+        applyRightOptionToggleSetting()
 
         // Click-outside dismissal
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
@@ -388,7 +394,17 @@ final class SidePanelController: NSWindowController {
 
     // MARK: - Settings Change
 
+    private func applyRightOptionToggleSetting() {
+        if ShortcutSettings.shared.rightOptionToggleEnabled {
+            specialKeyMonitor.startMonitoring()
+        } else {
+            specialKeyMonitor.stopMonitoring()
+        }
+    }
+
     @objc private func handleSettingsChanged() {
+        applyRightOptionToggleSetting()
+
         guard let window, let containerView = window.contentView else { return }
 
         // Update corner radius for new edge side

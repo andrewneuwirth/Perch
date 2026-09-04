@@ -5,6 +5,7 @@ struct KeyboardSettingsTab: View {
 
     /// Global shortcut
     @State private var toggleShortcut: KeyboardShortcut?
+    @State private var rightOptionToggleEnabled: Bool
 
     // Local configurable shortcuts
     @State private var newNoteShortcut: KeyboardShortcut?
@@ -17,6 +18,7 @@ struct KeyboardSettingsTab: View {
     init() {
         let s = ShortcutSettings.shared
         _toggleShortcut = State(initialValue: s.togglePanelShortcut)
+        _rightOptionToggleEnabled = State(initialValue: s.rightOptionToggleEnabled)
         _newNoteShortcut = State(initialValue: s.newNoteShortcut)
         _newFolderShortcut = State(initialValue: s.newFolderShortcut)
         _searchShortcut = State(initialValue: s.searchShortcut)
@@ -40,6 +42,15 @@ struct KeyboardSettingsTab: View {
                 .onChange(of: toggleShortcut) { _, v in
                     ShortcutSettings.shared.togglePanelShortcut = v
                 }
+
+                Toggle(l10n["settings.keyboard.rightOptionToggle"], isOn: $rightOptionToggleEnabled)
+                    .onChange(of: rightOptionToggleEnabled) { _, v in
+                        ShortcutSettings.shared.rightOptionToggleEnabled = v
+                    }
+
+                Text(l10n["settings.keyboard.rightOptionToggleNote"])
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } header: {
                 Label(l10n["settings.keyboard.globalShortcuts"], systemImage: "globe")
             }

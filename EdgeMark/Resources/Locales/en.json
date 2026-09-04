@@ -294,5 +294,7 @@
   "slashCmd.table": "Table",
   "slashCmd.divider": "Divider",
   "settings.about.viewOriginalProject": "View Original Project on GitHub",
-  "settings.about.basedOn": "Based on the open-source EdgeMark, customized for personal use"
+  "settings.about.basedOn": "Based on the open-source EdgeMark, customized for personal use",
+  "settings.keyboard.rightOptionToggle": "Tap right ⌥ to toggle Perch",
+  "settings.keyboard.rightOptionToggleNote": "Won't fire if right ⌥ is held for another shortcut, like an accented character."
 }
