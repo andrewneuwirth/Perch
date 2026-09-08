@@ -311,6 +311,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController?.noteStore.openTrash()
     }
 
+    @objc func showDisk() {
+        panelController?.noteStore.openDisk()
+    }
+
     @objc func setSortByName() {
         panelController?.appSettings.sortBy = .name
     }

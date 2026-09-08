@@ -13,6 +13,8 @@ final class NoteStore {
     var selectedFolder: Folder?
     var selectedNote: Note?
     var showTrash = false
+    /// Disk-space screen (see DiskUsageModel). Overlay like Trash.
+    var showDisk = false
     /// Whether the create modal (New note / checklist / folder / link) is showing.
     var isCreateModalPresented = false
 
@@ -304,6 +306,32 @@ final class NoteStore {
         }
     }
 
+    func openDisk() {
+        Log.navigation.debug("[NoteStore] openDisk")
+        navigationDirection = .overlay
+        clearSelection()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showTrash = false
+            showDisk = true
+        }
+    }
+
+    func closeDisk() {
+        Log.navigation.debug("[NoteStore] closeDisk")
+        navigationDirection = .overlay
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showDisk = false
+        }
+    }
+
+    // MARK: - Archiving (see toggleDone)
+
+    /// One pending timer per note mid-countdown, keyed by id — checked-off
+    /// notes waiting to auto-archive, archived notes waiting to auto-restore.
+    private var archiveTimers: [UUID: Timer] = [:]
+    private var restoreTimers: [UUID: Timer] = [:]
+    private let archiveDelay: TimeInterval = 3.0
+
     // MARK: - Dirty Tracking
 
     private var dirtyNoteIDs: Set<UUID> = []
@@ -502,11 +530,60 @@ final class NoteStore {
     }
 
     /// Check or uncheck a note from the list. Sidecar-only write; the file is untouched.
+    ///
+    /// Handles archiving too, since it's the single place every checkbox (in
+    /// the normal list AND in the Archived section) already calls through:
+    /// checking a note off starts a countdown to auto-archive it; un-checking
+    /// an archived note starts a countdown to restore it to its normal spot.
+    /// Toggling back within that window (the "undo") just cancels — this
+    /// function is symmetric, so re-toggling always lands on the right branch.
     func toggleDone(_ note: Note) {
         guard let index = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        let id = note.id
+        cancelPendingArchiving(for: id)
+
         notes[index].isDone.toggle()
         FileStorage.updateSidecarFlags(for: notes[index])
-        if selectedNote?.id == note.id { selectedNote = notes[index] }
+        if selectedNote?.id == id { selectedNote = notes[index] }
+
+        let isDone = notes[index].isDone
+        let isArchived = notes[index].archivedAt != nil
+
+        if isDone, !isArchived {
+            archiveTimers[id] = Timer.scheduledTimer(withTimeInterval: archiveDelay, repeats: false) { [weak self] _ in
+                self?.archiveTimers[id] = nil
+                self?.commitArchive(id: id)
+            }
+        } else if !isDone, isArchived {
+            restoreTimers[id] = Timer.scheduledTimer(withTimeInterval: archiveDelay, repeats: false) { [weak self] _ in
+                self?.restoreTimers[id] = nil
+                self?.commitRestore(id: id)
+            }
+        }
+    }
+
+    private func commitArchive(id: UUID) {
+        guard let index = notes.firstIndex(where: { $0.id == id }), notes[index].isDone, notes[index].archivedAt == nil else { return }
+        notes[index].archivedAt = Date()
+        FileStorage.updateSidecarFlags(for: notes[index])
+        if selectedNote?.id == id { selectedNote = notes[index] }
+    }
+
+    private func commitRestore(id: UUID) {
+        guard let index = notes.firstIndex(where: { $0.id == id }), !notes[index].isDone, notes[index].archivedAt != nil else { return }
+        notes[index].archivedAt = nil
+        FileStorage.updateSidecarFlags(for: notes[index])
+        if selectedNote?.id == id { selectedNote = notes[index] }
+    }
+
+    /// Stop a note's pending archive/restore countdown without applying it —
+    /// called whenever the note is removed out from under the timer (trashed,
+    /// deleted) so it never fires against a note that's no longer there.
+    private func cancelPendingArchiving(for id: UUID) {
+        archiveTimers[id]?.invalidate()
+        archiveTimers[id] = nil
+        restoreTimers[id]?.invalidate()
+        restoreTimers[id] = nil
     }
 
     /// A checklist with no items or groups is just a titled page — treat it as a note.
@@ -721,15 +798,18 @@ final class NoteStore {
     /// Flat row order matching what the active list view is rendering.
     /// Empty when keyboard navigation shouldn't apply (editor, trash).
     var keyboardNavOrder: [SelectableID] {
-        if selectedNote != nil || showTrash { return [] }
+        if selectedNote != nil || showTrash || showDisk { return [] }
         let s = AppSettings.shared
+        // Archived notes sit in a collapsed section (see HomeFolderView/NoteListView)
+        // and must not be reachable from the keyboard until expanded, or the
+        // selection cursor could land on a row that isn't actually visible.
         if let parent = selectedFolder?.name {
             let kidFolders = sortedFolders(childFolders(of: parent), by: s.sortBy, ascending: s.sortAscending)
-            let folderNotes = sortedNotes(filteredNotes, by: s.sortBy, ascending: s.sortAscending)
+            let folderNotes = sortedNotes(filteredNotes.filter { $0.archivedAt == nil }, by: s.sortBy, ascending: s.sortAscending)
             return kidFolders.map { .folder($0.name) } + folderNotes.map { .note($0.id) }
         }
         let topLevel = sortedFolders(folders.filter(\.isTopLevel), by: s.sortBy, ascending: s.sortAscending)
-        let rootNotes = sortedNotes(notes.filter(\.folder.isEmpty), by: s.sortBy, ascending: s.sortAscending)
+        let rootNotes = sortedNotes(notes.filter { $0.folder.isEmpty && $0.archivedAt == nil }, by: s.sortBy, ascending: s.sortAscending)
         return topLevel.map { .folder($0.name) } + rootNotes.map { .note($0.id) }
     }
 
@@ -896,6 +976,7 @@ final class NoteStore {
     }
 
     func deleteNote(_ note: Note) {
+        cancelPendingArchiving(for: note.id)
         notes.removeAll { $0.id == note.id }
         dirtyNoteIDs.remove(note.id)
         do {
@@ -1023,6 +1104,7 @@ final class NoteStore {
 
     func trashNote(_ note: Note) {
         guard let index = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        cancelPendingArchiving(for: note.id)
         notes[index].trashedAt = Date()
         dirtyNoteIDs.remove(note.id)
 

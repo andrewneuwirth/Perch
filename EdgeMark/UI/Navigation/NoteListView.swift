@@ -8,6 +8,7 @@ struct NoteListView: View {
 
     @State private var noteRename = NoteRenameCoordinator()
     @State private var folderRename = FolderRenameCoordinator()
+    @State private var isArchivedExpanded = false
     @FocusState private var isFolderFieldFocused: Bool
     @FocusState private var isNoteRenameFocused: Bool
     @FocusState private var isFolderRenameFocused: Bool
@@ -27,8 +28,18 @@ struct NoteListView: View {
         return "/\(name)/"
     }
 
+    /// Notes in this folder, sorted, excluding archived ones (they render in
+    /// their own collapsed section below).
     private var sortedNotes: [Note] {
-        noteStore.sortedNotes(noteStore.filteredNotes, by: appSettings.sortBy, ascending: appSettings.sortAscending)
+        let active = noteStore.filteredNotes.filter { $0.archivedAt == nil }
+        return noteStore.sortedNotes(active, by: appSettings.sortBy, ascending: appSettings.sortAscending)
+    }
+
+    /// This folder's notes that auto-archived, most recently archived first.
+    private var archivedNotes: [Note] {
+        noteStore.filteredNotes
+            .filter { $0.archivedAt != nil }
+            .sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) }
     }
 
     private var childFolders: [Folder] {
@@ -114,6 +125,10 @@ struct NoteListView: View {
 
                                 ForEach(sortedNotes) { note in
                                     noteRowWithContextMenu(note: note)
+                                }
+
+                                if !archivedNotes.isEmpty {
+                                    archivedSection
                                 }
                             }
                             .padding(.vertical, 10)
@@ -230,6 +245,52 @@ struct NoteListView: View {
                         showDeleteFolderConfirm = true
                     },
                 )
+            }
+        }
+    }
+
+    // MARK: - Archived Section
+
+    /// This folder's notes that sat checked-off long enough to auto-archive.
+    /// Collapsed by default, same pattern as `HomeFolderView`'s and
+    /// `ChecklistScreen`'s Archived sections. Rows reuse
+    /// `noteRowWithContextMenu` unchanged — unchecking one here calls the same
+    /// `noteStore.toggleDone`, which schedules the restore.
+    private var archivedSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Divider()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isArchivedExpanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isArchivedExpanded ? 90 : 0))
+                    Image(systemName: "archivebox")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(l10n["common.archived"])
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(archivedNotes.count)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isArchivedExpanded {
+                ForEach(archivedNotes) { note in
+                    noteRowWithContextMenu(note: note)
+                }
             }
         }
     }

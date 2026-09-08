@@ -9,7 +9,16 @@ final class SpecialKeyMonitor {
     /// Called when a clean tap-and-release completes.
     var onTapped: (() -> Void)?
 
-    private static let rightOptionKeyCode: UInt16 = 61
+    private let watchedKeyCode: UInt16
+    private let watchedFlag: NSEvent.ModifierFlags
+    private let label: String
+
+    /// Defaults preserve the original behavior: bare right-Option tap.
+    init(keyCode: UInt16 = 61, flag: NSEvent.ModifierFlags = .option, label: String = "right-Option") {
+        watchedKeyCode = keyCode
+        watchedFlag = flag
+        self.label = label
+    }
 
     private var globalFlagsMonitor: Any?
     private var localFlagsMonitor: Any?
@@ -21,7 +30,7 @@ final class SpecialKeyMonitor {
 
     func startMonitoring() {
         guard globalFlagsMonitor == nil else { return }
-        Log.shortcuts.info("[SpecialKeyMonitor] started monitoring right-Option tap")
+        Log.shortcuts.info("[SpecialKeyMonitor] started monitoring \(self.label) tap")
 
         globalFlagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             self?.handleFlagsChanged(event)
@@ -53,8 +62,8 @@ final class SpecialKeyMonitor {
     }
 
     private func handleFlagsChanged(_ event: NSEvent) {
-        guard event.keyCode == Self.rightOptionKeyCode else { return }
-        let down = event.modifierFlags.contains(.option)
+        guard event.keyCode == watchedKeyCode else { return }
+        let down = event.modifierFlags.contains(watchedFlag)
 
         if down, !isDown {
             isDown = true
@@ -62,7 +71,7 @@ final class SpecialKeyMonitor {
         } else if !down, isDown {
             isDown = false
             if !wasInterrupted {
-                Log.shortcuts.debug("[SpecialKeyMonitor] right-Option tap detected")
+                Log.shortcuts.debug("[SpecialKeyMonitor] \(self.label) tap detected")
                 onTapped?()
             }
         }

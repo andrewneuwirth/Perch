@@ -13,6 +13,10 @@ struct Note: Identifiable {
     var kind: NoteKind
     /// Checked-off state — any note can be a task. Persisted in the sidecar.
     var isDone: Bool
+    /// When this note auto-archived after sitting checked-off for a few
+    /// seconds (nil = not archived). Persisted in the sidecar. The note stays
+    /// in its folder — this only changes which section of the list shows it.
+    var archivedAt: Date?
     var content: String
     var createdAt: Date
     var modifiedAt: Date
@@ -66,11 +70,13 @@ struct Note: Identifiable {
         savedFilename: String? = nil,
         kind: NoteKind = .note,
         isDone: Bool = false,
+        archivedAt: Date? = nil,
     ) {
         self.id = id
         self.title = title
         self.kind = kind
         self.isDone = isDone
+        self.archivedAt = archivedAt
         self.content = content
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
@@ -93,6 +99,7 @@ struct Note: Identifiable {
             && lhs.trashedAt == rhs.trashedAt
             && lhs.kind == rhs.kind
             && lhs.isDone == rhs.isDone
+            && lhs.archivedAt == rhs.archivedAt
     }
 }
 

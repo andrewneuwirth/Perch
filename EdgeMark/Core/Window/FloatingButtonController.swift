@@ -40,6 +40,7 @@ final class FloatingButtonController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
         state.side = ShortcutSettings.shared.edgeSide
+        state.hotkeyLabel = Self.currentHotkeyLabel()
         let hosting = NSHostingView(rootView: FloatingButtonView(state: state, action: { [onToggle] in onToggle() })
             .environment(AppSettings.shared))
         hosting.frame = NSRect(x: 0, y: 0, width: size, height: size)
@@ -51,6 +52,7 @@ final class FloatingButtonController {
         })
         observers.append(nc.addObserver(forName: .shortcutSettingsChanged, object: nil, queue: .main) { [weak self] _ in
             self?.state.side = ShortcutSettings.shared.edgeSide
+            self?.state.hotkeyLabel = Self.currentHotkeyLabel()
             self?.reposition()
         })
         observers.append(nc.addObserver(forName: .floatingButtonSettingChanged, object: nil, queue: .main) { [weak self] _ in
@@ -98,6 +100,22 @@ final class FloatingButtonController {
         panel.setFrame(NSRect(x: x, y: y, width: size, height: size), display: true)
     }
 
+    // MARK: - Hotkey label
+
+    /// Mirrors OpenWhispr's dictation-pill tooltip, which names the physical
+    /// activation key ("Globe/Fn") rather than a generic verb. Prefers the
+    /// bare right-Option tap (the primary, always-on gesture); falls back to
+    /// the configurable shortcut if that's what's actually enabled.
+    static func currentHotkeyLabel() -> String? {
+        if ShortcutSettings.shared.rightOptionToggleEnabled {
+            return "⌥"
+        }
+        if let shortcut = ShortcutSettings.shared.togglePanelShortcut {
+            return shortcut.description
+        }
+        return nil
+    }
+
     // MARK: - Dock avoidance
 
     /// Height of the bottom Dock. macOS moves the Dock between displays and, when
@@ -129,6 +147,9 @@ final class FloatingButtonController {
 final class FloatingButtonState {
     var isPanelShown = false
     var side: EdgeSide = .right
+    /// Compact activation-key label shown in the button's hover tooltip
+    /// (e.g. "⌥" for the bare right-Option tap), nil when no hotkey is set.
+    var hotkeyLabel: String?
 }
 
 // MARK: - View
@@ -145,6 +166,15 @@ struct FloatingButtonView: View {
         case .right: state.isPanelShown ? "sidebar.trailing" : "sidebar.right"
         case .left: state.isPanelShown ? "sidebar.leading" : "sidebar.left"
         }
+    }
+
+    /// "Toggle Perch (⌥)" — names the activation key, same idea as
+    /// OpenWhispr's dictation-pill tooltip showing "Globe/Fn" on hover.
+    private var tooltip: String {
+        guard let label = state.hotkeyLabel, !label.isEmpty else {
+            return L10n.shared["menu.toggle"]
+        }
+        return "\(L10n.shared["menu.toggle"]) (\(label))"
     }
 
     var body: some View {
@@ -179,7 +209,7 @@ struct FloatingButtonView: View {
                     action()
                 },
         )
-        .help(L10n.shared["menu.toggle"])
+        .help(tooltip)
         .frame(width: FloatingButtonController.windowSize, height: FloatingButtonController.windowSize)
     }
 }

@@ -20,6 +20,10 @@ struct ChecklistItem: Identifiable, Equatable {
     var isDone = false
     var notes = ""
     var links: [ChecklistLink] = []
+    /// Set only while the item lives in `ChecklistDocument.archived`: the group
+    /// it should return to (nil = ungrouped) if it's ever un-checked there.
+    /// Meaningless — and always nil — for an item outside `archived`.
+    var archivedFromGroupName: String? = nil
 }
 
 struct ChecklistGroup: Identifiable, Equatable {
@@ -39,13 +43,27 @@ struct ChecklistGroup: Identifiable, Equatable {
 ///
 /// ## Group name
 /// - [x] Grouped item
+///
+/// A reserved `## Archived` group (always last, never in `groups`) holds items
+/// that auto-archived after sitting checked-off for a few seconds:
+///
+/// ```
+/// ## Archived
+/// - [x] Old item
+///   <!-- archived-from: Group name -->
+/// ```
 /// ```
 struct ChecklistDocument: Equatable {
+    /// Reserved group heading; items filed under it load into `archived`, not `groups`.
+    static let archivedHeadingName = "Archived"
+
     var title: String
     /// Non-matching top-level lines (kept so external edits aren't destroyed; not shown in UI).
     var preamble: [String] = []
     var ungrouped: [ChecklistItem] = []
     var groups: [ChecklistGroup] = []
+    /// Completed items parked out of the way. See `ChecklistItem.archivedFromGroupName`.
+    var archived: [ChecklistItem] = []
 
     // MARK: Counts
 
@@ -53,8 +71,10 @@ struct ChecklistDocument: Equatable {
         ungrouped + groups.flatMap(\.items)
     }
 
-    var totalCount: Int { allItems.count }
-    var doneCount: Int { allItems.filter(\.isDone).count }
+    /// Includes `archived` — a checklist that's "done" because everything got
+    /// archived must still read as done, not as empty.
+    var totalCount: Int { allItems.count + archived.count }
+    var doneCount: Int { allItems.filter(\.isDone).count + archived.count }
 
     // MARK: Parse
 
@@ -69,15 +89,16 @@ struct ChecklistDocument: Equatable {
             lines.removeFirst()
         }
 
-        var currentGroup: Int? = nil // index into doc.groups, nil = ungrouped
+        enum ParseTarget { case ungrouped, group(Int), archived }
+        var target: ParseTarget = .ungrouped
         var current: ChecklistItem? = nil
 
         func flush() {
             guard let item = current else { return }
-            if let g = currentGroup {
-                doc.groups[g].items.append(item)
-            } else {
-                doc.ungrouped.append(item)
+            switch target {
+            case .ungrouped: doc.ungrouped.append(item)
+            case let .group(g): doc.groups[g].items.append(item)
+            case .archived: doc.archived.append(item)
             }
             current = nil
         }
@@ -87,8 +108,13 @@ struct ChecklistDocument: Equatable {
 
             if line.hasPrefix("## ") {
                 flush()
-                doc.groups.append(ChecklistGroup(name: String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)))
-                currentGroup = doc.groups.count - 1
+                let name = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                if name == Self.archivedHeadingName {
+                    target = .archived
+                } else {
+                    doc.groups.append(ChecklistGroup(name: name))
+                    target = .group(doc.groups.count - 1)
+                }
                 continue
             }
 
@@ -102,7 +128,9 @@ struct ChecklistDocument: Equatable {
             if isIndented, current != nil {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 if trimmed.isEmpty { continue }
-                if let link = Self.parseLinkLine(trimmed) {
+                if let origin = Self.parseArchivedFromLine(trimmed) {
+                    current?.archivedFromGroupName = origin.isEmpty ? nil : origin
+                } else if let link = Self.parseLinkLine(trimmed) {
                     current?.links.append(link)
                 } else if var item = current {
                     item.notes = item.notes.isEmpty ? trimmed : item.notes + "\n" + trimmed
@@ -164,6 +192,15 @@ struct ChecklistDocument: Equatable {
         return nil
     }
 
+    /// `<!-- archived-from: Group name -->` (empty name = ungrouped). Nil if the
+    /// line isn't one of these markers.
+    private static func parseArchivedFromLine(_ trimmed: String) -> String? {
+        let prefix = "<!-- archived-from: "
+        let suffix = " -->"
+        guard trimmed.hasPrefix(prefix), trimmed.hasSuffix(suffix) else { return nil }
+        return String(trimmed.dropFirst(prefix.count).dropLast(suffix.count))
+    }
+
     // MARK: Serialize
 
     func serialize() -> String {
@@ -179,11 +216,18 @@ struct ChecklistDocument: Equatable {
             out += "\n## \(group.name)\n"
             for item in group.items { out += Self.serialize(item) }
         }
+        if !archived.isEmpty {
+            out += "\n## \(Self.archivedHeadingName)\n"
+            for item in archived { out += Self.serialize(item) }
+        }
         return out
     }
 
     private static func serialize(_ item: ChecklistItem) -> String {
         var s = "- [\(item.isDone ? "x" : " ")] \(item.title)\n"
+        if let origin = item.archivedFromGroupName {
+            s += "  <!-- archived-from: \(origin) -->\n"
+        }
         for line in item.notes.split(separator: "\n", omittingEmptySubsequences: false) where !line.isEmpty {
             s += "  \(line)\n"
         }
@@ -276,6 +320,50 @@ struct ChecklistDocument: Equatable {
     mutating func clearCompleted() {
         ungrouped.removeAll(where: \.isDone)
         for g in groups.indices { groups[g].items.removeAll(where: \.isDone) }
+        archived.removeAll()
+    }
+
+    // MARK: Archive
+
+    /// Group name an item currently sits in, for recording as its restore point.
+    private func groupName(for group: Int?) -> String? {
+        group.map { groups[$0].name }
+    }
+
+    /// Move a (checked) item out of its group into `archived`, remembering where
+    /// it came from. No-op if the item isn't found (already archived, deleted, etc).
+    mutating func archiveItem(id: UUID) {
+        guard let loc = locate(itemID: id) else { return }
+        var item = items(inGroup: loc.group)[loc.index]
+        item.archivedFromGroupName = groupName(for: loc.group)
+        removeItem(id: id)
+        archived.append(item)
+    }
+
+    /// Move an (un-checked) item out of `archived` back into its origin group —
+    /// or ungrouped, if that group was since deleted — at the normal "open
+    /// items" position. No-op if the item isn't currently archived.
+    mutating func restoreItem(id: UUID) {
+        guard let i = archived.firstIndex(where: { $0.id == id }) else { return }
+        var item = archived.remove(at: i)
+        let target = groups.firstIndex(where: { $0.name == item.archivedFromGroupName })
+        item.archivedFromGroupName = nil
+        var list = items(inGroup: target)
+        let firstDone = list.firstIndex(where: \.isDone) ?? list.endIndex
+        list.insert(item, at: firstDone)
+        setItems(list, inGroup: target)
+    }
+
+    /// Flip an archived item's done state in place (no repositioning — order
+    /// within `archived` doesn't matter). Used when the user un-checks one to
+    /// start the restore countdown, or re-checks it to cancel that countdown.
+    mutating func toggleArchivedDone(id: UUID) {
+        guard let i = archived.firstIndex(where: { $0.id == id }) else { return }
+        archived[i].isDone.toggle()
+    }
+
+    mutating func removeArchivedItem(id: UUID) {
+        archived.removeAll { $0.id == id }
     }
 
     @discardableResult

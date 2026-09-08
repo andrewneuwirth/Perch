@@ -18,6 +18,14 @@ struct ChecklistScreen: View {
     @State private var renamingGroupID: UUID?
     @State private var renameGroupText = ""
     @State private var saveDebouncer = Debouncer(delay: 1.0)
+    @State private var isArchivedExpanded = false
+    /// One debouncer per item mid-countdown: checked-off items waiting to auto-archive,
+    /// archived items waiting to auto-restore. Keyed by item id so re-toggling the same
+    /// item within the window cancels and restarts (or cancels outright) its own timer
+    /// without touching anyone else's.
+    @State private var archiveDebouncers: [UUID: Debouncer] = [:]
+    @State private var restoreDebouncers: [UUID: Debouncer] = [:]
+    private let archiveDelay: TimeInterval = 3.0
     @FocusState private var newGroupFocused: Bool
     @FocusState private var renameGroupFocused: Bool
 
@@ -40,8 +48,12 @@ struct ChecklistScreen: View {
         }
         .onAppear {
             noteStore.onNeedEditorReload = { content in
+                cancelAllPendingArchiving()
                 doc = ChecklistDocument.parse(content)
             }
+        }
+        .onDisappear {
+            cancelAllPendingArchiving()
         }
         .alert(l10n["alert.deleteNote.title"], isPresented: $showDeleteConfirm) {
             Button(l10n["common.delete"], role: .destructive) {
@@ -101,6 +113,7 @@ struct ChecklistScreen: View {
                         PinMenuItem()
                         Divider()
                         Button {
+                            cancelAllPendingArchiving()
                             withAnimation(.easeInOut(duration: 0.2)) { doc.clearCompleted() }
                             commit()
                         } label: {
@@ -168,8 +181,65 @@ struct ChecklistScreen: View {
                 if !doc.groups.isEmpty {
                     addGroupRow
                 }
+
+                if !doc.archived.isEmpty {
+                    archivedSection
+                }
             }
             .padding(.vertical, 8)
+        }
+    }
+
+    /// Completed items that sat checked-off long enough to auto-archive.
+    /// Collapsed by default — this is meant to be out of the way, not a second list.
+    private var archivedSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isArchivedExpanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isArchivedExpanded ? 90 : 0))
+                    Image(systemName: "archivebox")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(l10n["checklist.archived"])
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(doc.archived.count)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isArchivedExpanded {
+                ForEach(doc.archived) { item in
+                    ChecklistRowView(
+                        item: item,
+                        onToggle: { toggleArchivedItem(item) },
+                        onOpen: {},
+                        onRename: { _ in },
+                        onDelete: {
+                            restoreDebouncers[item.id]?.cancel()
+                            restoreDebouncers[item.id] = nil
+                            withAnimation(.easeInOut(duration: 0.2)) { doc.removeArchivedItem(id: item.id) }
+                            commit()
+                        },
+                        moveTargets: [],
+                        onMove: { _ in },
+                        canRename: false,
+                    )
+                }
+                .padding(.bottom, 4)
+            }
         }
     }
 
@@ -187,12 +257,7 @@ struct ChecklistScreen: View {
             ForEach(items) { item in
                 ChecklistRowView(
                     item: item,
-                    onToggle: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            doc.toggle(itemID: item.id)
-                        }
-                        commit()
-                    },
+                    onToggle: { toggleItem(item) },
                     onOpen: {},
                     onRename: { newTitle in
                         var updated = item
@@ -201,6 +266,8 @@ struct ChecklistScreen: View {
                         commit()
                     },
                     onDelete: {
+                        archiveDebouncers[item.id]?.cancel()
+                        archiveDebouncers[item.id] = nil
                         withAnimation(.easeInOut(duration: 0.2)) { doc.removeItem(id: item.id) }
                         commit()
                     },
@@ -314,6 +381,63 @@ struct ChecklistScreen: View {
         }
     }
 
+    // MARK: - Archiving
+
+    /// Check an item off (or back on). If it's now done, start the
+    /// auto-archive countdown; re-toggling it off before the countdown ends
+    /// (this cancels via the same code path) is the undo.
+    private func toggleItem(_ item: ChecklistItem) {
+        archiveDebouncers[item.id]?.cancel()
+        archiveDebouncers[item.id] = nil
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            doc.toggle(itemID: item.id)
+        }
+        commit()
+        guard doc.item(id: item.id)?.isDone == true else { return }
+
+        let id = item.id
+        let debouncer = Debouncer(delay: archiveDelay)
+        archiveDebouncers[id] = debouncer
+        debouncer.call { [self] in
+            guard doc.item(id: id)?.isDone == true else { return }
+            withAnimation(.easeInOut(duration: 0.3)) { doc.archiveItem(id: id) }
+            commit()
+            archiveDebouncers[id] = nil
+        }
+    }
+
+    /// Un-check an archived item (or re-check it). If it's now not done, start
+    /// the auto-restore countdown back to its original group.
+    private func toggleArchivedItem(_ item: ChecklistItem) {
+        restoreDebouncers[item.id]?.cancel()
+        restoreDebouncers[item.id] = nil
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            doc.toggleArchivedDone(id: item.id)
+        }
+        commit()
+        guard doc.archived.first(where: { $0.id == item.id })?.isDone == false else { return }
+
+        let id = item.id
+        let debouncer = Debouncer(delay: archiveDelay)
+        restoreDebouncers[id] = debouncer
+        debouncer.call { [self] in
+            guard doc.archived.first(where: { $0.id == id })?.isDone == false else { return }
+            withAnimation(.easeInOut(duration: 0.3)) { doc.restoreItem(id: id) }
+            commit()
+            restoreDebouncers[id] = nil
+        }
+    }
+
+    /// Stop every pending archive/restore countdown without applying them —
+    /// called when the note closes or its content is replaced out from under
+    /// us, so a timer never fires against a `doc` the user has moved on from.
+    private func cancelAllPendingArchiving() {
+        for d in archiveDebouncers.values { d.cancel() }
+        for d in restoreDebouncers.values { d.cancel() }
+        archiveDebouncers.removeAll()
+        restoreDebouncers.removeAll()
+    }
+
     // MARK: - Actions
 
     private func beginRenameGroup(_ group: ChecklistGroup) {
@@ -347,6 +471,7 @@ struct ChecklistScreen: View {
 
     private func goBack() {
         saveDebouncer.cancel()
+        cancelAllPendingArchiving()
         noteStore.closeNote()
     }
 }
@@ -361,6 +486,9 @@ private struct ChecklistRowView: View {
     let onDelete: () -> Void
     let moveTargets: [(String, Int?)]
     let onMove: (Int?) -> Void
+    /// False for archived rows — their title isn't a live document position,
+    /// so renaming would silently discard whatever was typed.
+    var canRename: Bool = true
 
     @Environment(L10n.self) private var l10n
     @State private var isHovered = false
@@ -392,7 +520,7 @@ private struct ChecklistRowView: View {
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                     .contentShape(Rectangle())
-                    .onTapGesture { beginRename() }
+                    .onTapGesture { if canRename { beginRename() } }
 
                 Spacer(minLength: 4)
 
@@ -417,7 +545,9 @@ private struct ChecklistRowView: View {
         .contentShape(Rectangle())
         .onHover { h in withAnimation(.easeInOut(duration: 0.12)) { isHovered = h } }
         .contextMenu {
-            Button { beginRename() } label: { Label(l10n["common.rename"], systemImage: "pencil") }
+            if canRename {
+                Button { beginRename() } label: { Label(l10n["common.rename"], systemImage: "pencil") }
+            }
             if !moveTargets.isEmpty {
                 Menu {
                     ForEach(Array(moveTargets.enumerated()), id: \.offset) { _, target in

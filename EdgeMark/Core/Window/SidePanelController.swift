@@ -37,6 +37,8 @@ final class SidePanelController: NSWindowController {
     var floatingButtonFrameProvider: (() -> NSRect?)?
     let edgeDetector: EdgeDetector
     private let specialKeyMonitor = SpecialKeyMonitor()
+    // Bare right-Command tap toggles screen-wide red mode (night eyes).
+    private let redModeKeyMonitor = SpecialKeyMonitor(keyCode: 54, flag: .command, label: "right-Command")
     let noteStore = NoteStore()
     let appSettings = AppSettings.shared
     private let peekCoordinator = PeekCoordinator()
@@ -151,6 +153,11 @@ final class SidePanelController: NSWindowController {
             self?.togglePanel()
         }
         applyRightOptionToggleSetting()
+
+        redModeKeyMonitor.onTapped = {
+            RedModeController.shared.toggle()
+        }
+        redModeKeyMonitor.startMonitoring()
 
         // Click-outside dismissal
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in

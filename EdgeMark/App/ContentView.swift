@@ -5,15 +5,15 @@ struct ContentView: View {
     @Environment(PeekCoordinator.self) var peekCoordinator
 
     private var showHome: Bool {
-        !noteStore.showTrash && noteStore.selectedFolder == nil && noteStore.selectedNote == nil
+        !noteStore.showTrash && !noteStore.showDisk && noteStore.selectedFolder == nil && noteStore.selectedNote == nil
     }
 
     private var showNoteList: Bool {
-        !noteStore.showTrash && noteStore.selectedFolder != nil && noteStore.selectedNote == nil
+        !noteStore.showTrash && !noteStore.showDisk && noteStore.selectedFolder != nil && noteStore.selectedNote == nil
     }
 
     private var showEditor: Bool {
-        !noteStore.showTrash && noteStore.selectedNote != nil
+        !noteStore.showTrash && !noteStore.showDisk && noteStore.selectedNote != nil
     }
 
     /// Horizontal page transition based on navigation direction.
@@ -75,6 +75,11 @@ struct ContentView: View {
                     .transition(trashTransition)
             }
 
+            if noteStore.showDisk {
+                DiskView()
+                    .transition(trashTransition)
+            }
+
             if noteStore.isCreateModalPresented {
                 CreateItemModal()
                     .transition(.opacity)
@@ -93,6 +98,9 @@ struct ContentView: View {
             if newName != nil { peekCoordinator.dismissNow() }
         }
         .onChange(of: noteStore.showTrash) { _, isOn in
+            if isOn { peekCoordinator.dismissNow() }
+        }
+        .onChange(of: noteStore.showDisk) { _, isOn in
             if isOn { peekCoordinator.dismissNow() }
         }
     }

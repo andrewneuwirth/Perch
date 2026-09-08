@@ -14,6 +14,9 @@ struct ContentFooterBar: View {
             HeaderIconButton(systemName: "arrow.up.arrow.down", help: l10n["sort.help"]) {
                 showSortMenu()
             }
+            if !noteStore.showDisk {
+                DiskSpacePill()
+            }
             Spacer()
             PinButton()
             HeaderIconButton(systemName: "gearshape", help: l10n["menu.settings"]) {
@@ -81,6 +84,15 @@ struct ContentFooterBar: View {
         trashItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
         trashItem.target = delegate
         menu.addItem(trashItem)
+
+        let diskItem = NSMenuItem(
+            title: l10n["disk.title"],
+            action: #selector(AppDelegate.showDisk),
+            keyEquivalent: "",
+        )
+        diskItem.image = NSImage(systemSymbolName: "internaldrive", accessibilityDescription: nil)
+        diskItem.target = delegate
+        menu.addItem(diskItem)
 
         menu.addItem(.separator())
 

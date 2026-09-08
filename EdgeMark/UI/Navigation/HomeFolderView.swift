@@ -8,6 +8,7 @@ struct HomeFolderView: View {
     @Environment(L10n.self) var l10n
     @State private var noteRename = NoteRenameCoordinator()
     @State private var folderRename = FolderRenameCoordinator()
+    @State private var isArchivedExpanded = false
     @State private var isSearching = false
     @State private var searchQuery = ""
     @FocusState private var isSearchFieldFocused: Bool
@@ -81,10 +82,18 @@ struct HomeFolderView: View {
             .filter { seen.insert($0.id).inserted }
     }
 
-    /// Root-level notes (no folder), sorted by current sort setting.
+    /// Root-level notes (no folder), sorted by current sort setting. Excludes
+    /// archived notes — those render in their own collapsed section below.
     private var rootNotes: [Note] {
-        let filtered = noteStore.notes.filter(\.folder.isEmpty)
+        let filtered = noteStore.notes.filter { $0.folder.isEmpty && $0.archivedAt == nil }
         return noteStore.sortedNotes(filtered, by: appSettings.sortBy, ascending: appSettings.sortAscending)
+    }
+
+    /// Root-level notes that auto-archived, most recently archived first.
+    private var archivedRootNotes: [Note] {
+        noteStore.notes
+            .filter { $0.folder.isEmpty && $0.archivedAt != nil }
+            .sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) }
     }
 
     /// Top-level folders sorted by current sort setting.
@@ -231,6 +240,10 @@ struct HomeFolderView: View {
                             noteRowWithContextMenu(note: note)
                         }
                     }
+
+                    if !archivedRootNotes.isEmpty {
+                        archivedSection
+                    }
                 }
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
@@ -269,6 +282,51 @@ struct HomeFolderView: View {
                 Text(l10n.t("alert.deleteFolder.withNotes", folderName, "\(count)"))
             } else {
                 Text(l10n.t("alert.deleteFolder.empty", folderName))
+            }
+        }
+    }
+
+    // MARK: - Archived Section
+
+    /// Root notes that sat checked-off long enough to auto-archive. Collapsed
+    /// by default, same disclosure pattern as `ChecklistScreen`'s Archived
+    /// section. Rows reuse `noteRowWithContextMenu` unchanged — unchecking one
+    /// here calls the same `noteStore.toggleDone`, which schedules the restore.
+    private var archivedSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Divider()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isArchivedExpanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isArchivedExpanded ? 90 : 0))
+                    Image(systemName: "archivebox")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(l10n["common.archived"])
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(archivedRootNotes.count)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isArchivedExpanded {
+                ForEach(archivedRootNotes) { note in
+                    noteRowWithContextMenu(note: note)
+                }
             }
         }
     }

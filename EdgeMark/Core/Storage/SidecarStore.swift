@@ -16,6 +16,7 @@ final class SidecarStore {
         var tags: [String] // TagColor rawValues
         var kind: String? = nil // NoteKind rawValue; nil = regular note
         var done: Bool? = nil // checked-off state; nil = not done
+        var archivedAt: Date? = nil // auto-archived timestamp; nil = not archived
     }
 
     struct TrashEntry: Codable {

@@ -322,6 +322,7 @@ enum FileStorage {
     static func updateSidecarFlags(for note: Note) {
         if note.trashedAt == nil, var entry = SidecarStore.shared.noteEntry(for: note.id) {
             entry.done = note.isDone ? true : nil
+            entry.archivedAt = note.archivedAt
             entry.kind = note.kind == .note ? nil : note.kind.rawValue
             SidecarStore.shared.upsertNote(entry, for: note.id)
             try? SidecarStore.shared.save()
@@ -814,6 +815,7 @@ enum FileStorage {
                     savedFilename: filename,
                     kind: entry.kind.flatMap { NoteKind(rawValue: $0) } ?? .note,
                     isDone: entry.done ?? false,
+                    archivedAt: entry.archivedAt,
                 )
             }
         }
