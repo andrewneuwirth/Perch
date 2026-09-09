@@ -17,6 +17,8 @@ final class NoteStore {
     var showDisk = false
     /// Memory screen (see MemoryUsageModel). Overlay like Trash.
     var showMemory = false
+    /// Sleep controls (see PowerModel). Overlay like Trash.
+    var showSleep = false
     /// Whether the create modal (New note / checklist / folder / link) is showing.
     var isCreateModalPresented = false
 
@@ -315,6 +317,7 @@ final class NoteStore {
         withAnimation(.easeInOut(duration: 0.2)) {
             showTrash = false
             showMemory = false
+            showSleep = false
             showDisk = true
         }
     }
@@ -334,6 +337,7 @@ final class NoteStore {
         withAnimation(.easeInOut(duration: 0.2)) {
             showTrash = false
             showDisk = false
+            showSleep = false
             showMemory = true
         }
     }
@@ -343,6 +347,26 @@ final class NoteStore {
         navigationDirection = .overlay
         withAnimation(.easeInOut(duration: 0.2)) {
             showMemory = false
+        }
+    }
+
+    func openSleep() {
+        Log.navigation.debug("[NoteStore] openSleep")
+        navigationDirection = .overlay
+        clearSelection()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showTrash = false
+            showDisk = false
+            showMemory = false
+            showSleep = true
+        }
+    }
+
+    func closeSleep() {
+        Log.navigation.debug("[NoteStore] closeSleep")
+        navigationDirection = .overlay
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showSleep = false
         }
     }
 

@@ -85,6 +85,11 @@ struct ContentView: View {
                     .transition(trashTransition)
             }
 
+            if noteStore.showSleep {
+                SleepView()
+                    .transition(trashTransition)
+            }
+
             if noteStore.isCreateModalPresented {
                 CreateItemModal()
                     .transition(.opacity)

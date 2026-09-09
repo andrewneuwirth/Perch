@@ -319,6 +319,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController?.noteStore.openMemory()
     }
 
+    @objc func showSleep() {
+        panelController?.noteStore.openSleep()
+    }
+
     @objc func setSortByName() {
         panelController?.appSettings.sortBy = .name
     }

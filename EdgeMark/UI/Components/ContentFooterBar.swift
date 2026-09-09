@@ -103,6 +103,15 @@ struct ContentFooterBar: View {
         memoryItem.target = delegate
         menu.addItem(memoryItem)
 
+        let sleepItem = NSMenuItem(
+            title: l10n["sleep.title"],
+            action: #selector(AppDelegate.showSleep),
+            keyEquivalent: "",
+        )
+        sleepItem.image = NSImage(systemSymbolName: "moon.zzz", accessibilityDescription: nil)
+        sleepItem.target = delegate
+        menu.addItem(sleepItem)
+
         menu.addItem(.separator())
 
         menu.addActionItem(title: l10n["panel.dockToEdge"], icon: "rectangle.righthalf.inset.filled") {

@@ -242,6 +242,9 @@ struct LinkRowView: View {
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .opacity(isHovered ? 1 : 0)
+                if onMoveUp != nil || onMoveDown != nil {
+                    RowMoveButtons(visible: isHovered, onUp: onMoveUp, onDown: onMoveDown)
+                }
                 RowTrashButton(visible: isHovered, action: onDelete)
             }
         }
