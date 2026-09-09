@@ -141,3 +141,47 @@ final class SleepRestoreTests: XCTestCase {
                        ["pmset -c sleep 0", "pmset -b sleep 15"])
     }
 }
+
+final class SleepPresetTests: XCTestCase {
+
+    /// The overnight case the whole preset exists for: the machine keeps
+    /// working, the screen is allowed to go dark on its own timer.
+    func testOvernightKeepsTheMachineUpAndLetsTheScreenSleep() {
+        XCTAssertTrue(SleepPreset.overnight.keepSystemAwake)
+        XCTAssertFalse(SleepPreset.overnight.keepDisplayAwake)
+    }
+
+    func testScreenOnHoldsBoth() {
+        XCTAssertTrue(SleepPreset.screenOn.keepSystemAwake)
+        XCTAssertTrue(SleepPreset.screenOn.keepDisplayAwake)
+    }
+
+    func testNormalHoldsNothing() {
+        XCTAssertFalse(SleepPreset.normal.keepSystemAwake)
+        XCTAssertFalse(SleepPreset.normal.keepDisplayAwake)
+    }
+
+    /// Round-trips, so selecting a preset and reading the assertions back
+    /// lands on the same preset.
+    func testEveryPresetRoundTrips() {
+        for preset in SleepPreset.allCases {
+            XCTAssertEqual(
+                SleepPreset.matching(keepSystemAwake: preset.keepSystemAwake, keepDisplayAwake: preset.keepDisplayAwake),
+                preset,
+                "\(preset.rawValue) did not round-trip",
+            )
+        }
+    }
+
+    /// A held display assertion keeps the system awake as a side effect, so
+    /// display-only is the same situation as screenOn, not a fourth state.
+    func testDisplayHeldAloneReadsAsScreenOn() {
+        XCTAssertEqual(SleepPreset.matching(keepSystemAwake: false, keepDisplayAwake: true), .screenOn)
+    }
+
+    func testMatchingIsTotal() {
+        XCTAssertEqual(SleepPreset.matching(keepSystemAwake: false, keepDisplayAwake: false), .normal)
+        XCTAssertEqual(SleepPreset.matching(keepSystemAwake: true, keepDisplayAwake: false), .overnight)
+        XCTAssertEqual(SleepPreset.matching(keepSystemAwake: true, keepDisplayAwake: true), .screenOn)
+    }
+}

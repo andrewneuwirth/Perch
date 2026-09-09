@@ -94,6 +94,24 @@ final class PowerModel {
         }
     }
 
+    /// Which of the three session states the held assertions add up to.
+    var preset: SleepPreset {
+        SleepPreset.matching(keepSystemAwake: keepSystemAwake, keepDisplayAwake: keepDisplayAwake)
+    }
+
+    /// Take the assertions one preset needs and release the rest. Display
+    /// first when standing down, system first when standing up, so the machine
+    /// is never briefly free to idle-sleep midway through a change.
+    func setPreset(_ preset: SleepPreset) {
+        if preset.keepSystemAwake {
+            setKeepSystemAwake(true)
+            setKeepDisplayAwake(preset.keepDisplayAwake)
+        } else {
+            setKeepDisplayAwake(false)
+            setKeepSystemAwake(false)
+        }
+    }
+
     // MARK: - Permanent settings
 
     /// Read the current `pmset` state. No privileges required, so this runs

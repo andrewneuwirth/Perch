@@ -36,20 +36,48 @@ struct SleepView: View {
                             title: l10n["sleep.session"],
                             note: l10n["sleep.session.note"],
                         ) {
-                            toggleRow(
-                                title: l10n["sleep.keepDisplayAwake"],
-                                detail: l10n["sleep.keepDisplayAwake.detail"],
-                                icon: "sun.max",
-                                isOn: model.keepDisplayAwake,
-                                set: { model.setKeepDisplayAwake($0) },
-                            )
-                            toggleRow(
-                                title: l10n["sleep.keepSystemAwake"],
-                                detail: l10n["sleep.keepSystemAwake.detail"],
-                                icon: "bolt",
-                                isOn: model.keepSystemAwake,
-                                set: { model.setKeepSystemAwake($0) },
-                            )
+                            Picker("", selection: Binding(
+                                get: { model.preset },
+                                set: { model.setPreset($0) },
+                            )) {
+                                ForEach(SleepPreset.allCases) { preset in
+                                    Text(title(for: preset)).tag(preset)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: icon(for: model.preset))
+                                    .font(.body)
+                                    .foregroundStyle(model.preset == .normal ? .secondary : Color.accentColor)
+                                    .frame(width: 20)
+                                Text(explanation(for: model.preset))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .glassInset(cornerRadius: 8)
+
+                            // The lid is a different sleep path, and no session
+                            // assertion covers it. Say so where it matters
+                            // rather than leaving it to be discovered.
+                            if model.preset != .normal, !model.settings.sleepDisabled {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                    Text(l10n["sleep.lidWarning"])
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 10)
+                            }
                         }
 
                         section(
@@ -103,6 +131,43 @@ struct SleepView: View {
         let ac = minutes(model.settings.acSleepMinutes)
         let battery = minutes(model.settings.batterySleepMinutes)
         return l10n.t("sleep.idleTimers", ac, battery) + "\n" + l10n["sleep.neverSleep.note"]
+    }
+
+    private func title(for preset: SleepPreset) -> String {
+        switch preset {
+        case .normal: l10n["sleep.preset.normal"]
+        case .overnight: l10n["sleep.preset.overnight"]
+        case .screenOn: l10n["sleep.preset.screenOn"]
+        }
+    }
+
+    private func icon(for preset: SleepPreset) -> String {
+        switch preset {
+        case .normal: "moon"
+        case .overnight: "moon.stars"
+        case .screenOn: "sun.max"
+        }
+    }
+
+    /// Says what will happen, in terms of this Mac's own display timer rather
+    /// than in the abstract.
+    private func explanation(for preset: SleepPreset) -> String {
+        switch preset {
+        case .normal:
+            return l10n["sleep.preset.normal.note"]
+        case .overnight:
+            return l10n.t("sleep.preset.overnight.note", displayTimer)
+        case .screenOn:
+            return l10n["sleep.preset.screenOn.note"]
+        }
+    }
+
+    /// The display timer actually in force, preferring the plugged-in figure —
+    /// an overnight run is almost always on power.
+    private var displayTimer: String {
+        let value = model.settings.acDisplaySleepMinutes ?? model.settings.batteryDisplaySleepMinutes
+        guard let value, value > 0 else { return l10n["sleep.preset.displayTimerUnknown"] }
+        return l10n.t("sleep.minutes", "\(value)")
     }
 
     private func minutes(_ value: Int?) -> String {
