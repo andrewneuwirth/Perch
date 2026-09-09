@@ -80,6 +80,11 @@ struct ContentView: View {
                     .transition(trashTransition)
             }
 
+            if noteStore.showMemory {
+                MemoryView()
+                    .transition(trashTransition)
+            }
+
             if noteStore.isCreateModalPresented {
                 CreateItemModal()
                     .transition(.opacity)

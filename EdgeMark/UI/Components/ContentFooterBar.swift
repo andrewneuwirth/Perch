@@ -94,6 +94,15 @@ struct ContentFooterBar: View {
         diskItem.target = delegate
         menu.addItem(diskItem)
 
+        let memoryItem = NSMenuItem(
+            title: l10n["memory.title"],
+            action: #selector(AppDelegate.showMemory),
+            keyEquivalent: "",
+        )
+        memoryItem.image = NSImage(systemSymbolName: "memorychip", accessibilityDescription: nil)
+        memoryItem.target = delegate
+        menu.addItem(memoryItem)
+
         menu.addItem(.separator())
 
         menu.addActionItem(title: l10n["panel.dockToEdge"], icon: "rectangle.righthalf.inset.filled") {

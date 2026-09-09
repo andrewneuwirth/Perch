@@ -15,6 +15,8 @@ final class NoteStore {
     var showTrash = false
     /// Disk-space screen (see DiskUsageModel). Overlay like Trash.
     var showDisk = false
+    /// Memory screen (see MemoryUsageModel). Overlay like Trash.
+    var showMemory = false
     /// Whether the create modal (New note / checklist / folder / link) is showing.
     var isCreateModalPresented = false
 
@@ -312,6 +314,7 @@ final class NoteStore {
         clearSelection()
         withAnimation(.easeInOut(duration: 0.2)) {
             showTrash = false
+            showMemory = false
             showDisk = true
         }
     }
@@ -321,6 +324,25 @@ final class NoteStore {
         navigationDirection = .overlay
         withAnimation(.easeInOut(duration: 0.2)) {
             showDisk = false
+        }
+    }
+
+    func openMemory() {
+        Log.navigation.debug("[NoteStore] openMemory")
+        navigationDirection = .overlay
+        clearSelection()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showTrash = false
+            showDisk = false
+            showMemory = true
+        }
+    }
+
+    func closeMemory() {
+        Log.navigation.debug("[NoteStore] closeMemory")
+        navigationDirection = .overlay
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showMemory = false
         }
     }
 

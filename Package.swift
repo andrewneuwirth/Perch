@@ -9,10 +9,11 @@ let package = Package(
     targets: [
         .target(name: "ChecklistCore", path: "EdgeMark/Core/Checklist"),
         .target(name: "FavoritesCore", path: "EdgeMark/Core/Favorites"),
+        .target(name: "MemoryCore", path: "EdgeMark/Core/Memory"),
         .target(name: "PanelGeometryCore", path: "EdgeMark/Core/PanelGeometry"),
         .testTarget(
             name: "EdgeMarkCoreTests",
-            dependencies: ["ChecklistCore", "FavoritesCore", "PanelGeometryCore"],
+            dependencies: ["ChecklistCore", "FavoritesCore", "MemoryCore", "PanelGeometryCore"],
             path: "Tests/EdgeMarkCoreTests",
         ),
     ],

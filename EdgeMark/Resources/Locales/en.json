@@ -315,5 +315,17 @@
   "alert.disk.delete.title": "Delete permanently?",
   "alert.disk.delete.contents": "Everything inside “{0}” ({1}) will be deleted. The folder itself stays.",
   "alert.disk.delete.item": "“{0}” ({1}) will be deleted.",
-  "alert.disk.failed.title": "Couldn’t delete"
+  "alert.disk.failed.title": "Couldn’t delete",
+  "memory.title": "Memory",
+  "memory.resample": "Sample again",
+  "memory.used": "used",
+  "memory.ofTotal": "of {0}",
+  "memory.breakdown.app": "{0} app",
+  "memory.breakdown.wired": "{0} wired",
+  "memory.breakdown.compressed": "{0} compressed",
+  "memory.breakdown.swap": "{0} swap",
+  "memory.processCount": "{0} processes",
+  "memory.pid": "PID {0}",
+  "memory.nothingFound": "No process would say what it’s using.",
+  "memory.denied": "{0} processes belong to another user. macOS won’t report their memory to an unprivileged app, so they’re left out rather than guessed at."
 }
