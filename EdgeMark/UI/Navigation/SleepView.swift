@@ -97,11 +97,12 @@ struct SleepView: View {
     }
 
     /// What the system reports right now, so the toggle is never the only
-    /// source of truth about a setting we don't own.
+    /// source of truth about a setting we don't own — plus the line that says
+    /// what this switch does *not* cover, which is the lid.
     private var idleSummary: String {
         let ac = minutes(model.settings.acSleepMinutes)
         let battery = minutes(model.settings.batterySleepMinutes)
-        return l10n.t("sleep.idleTimers", ac, battery)
+        return l10n.t("sleep.idleTimers", ac, battery) + "\n" + l10n["sleep.neverSleep.note"]
     }
 
     private func minutes(_ value: Int?) -> String {

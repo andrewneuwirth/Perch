@@ -109,12 +109,48 @@ final class PowerModel {
         }
     }
 
-    /// `sudo pmset -a sleep 0` / `sudo pmset -a sleep 1`. Turning it back off
-    /// restores a 1-minute idle timer rather than guessing the user's old value
-    /// — macOS then treats sleep as enabled again and the Energy Saver pane
-    /// shows a normal timer to adjust.
+    /// `sudo pmset -a sleep 0`, and on the way back the timers that were there
+    /// before it was switched on. The old behaviour wrote a flat `sleep 1`,
+    /// which quietly turned a 15-minute battery timer into one minute — so the
+    /// values are stashed at the moment the switch goes on and replayed
+    /// per-source when it comes off.
     func setNeverSleep(_ on: Bool) async {
-        await runPrivileged(["pmset -a sleep \(on ? 0 : 1)"])
+        if on {
+            rememberCurrentSleepTimers()
+            await runPrivileged(["pmset -a sleep 0"])
+        } else {
+            await runPrivileged(SleepRestore.commands(ac: rememberedACSleep, battery: rememberedBatterySleep))
+            forgetRememberedSleepTimers()
+        }
+    }
+
+    // MARK: - Remembering the timers we overwrote
+
+    private static let acKey = "power.previousACSleepMinutes"
+    private static let batteryKey = "power.previousBatterySleepMinutes"
+
+    /// Only stash a reading we actually have. Storing a placeholder for an
+    /// unreadable source would make the fallback impossible to tell apart from
+    /// a real value of ten minutes.
+    private func rememberCurrentSleepTimers() {
+        let defaults = UserDefaults.standard
+        if let ac = settings.acSleepMinutes { defaults.set(ac, forKey: Self.acKey) }
+        if let battery = settings.batterySleepMinutes { defaults.set(battery, forKey: Self.batteryKey) }
+    }
+
+    private var rememberedACSleep: Int? {
+        UserDefaults.standard.object(forKey: Self.acKey) as? Int
+    }
+
+    private var rememberedBatterySleep: Int? {
+        UserDefaults.standard.object(forKey: Self.batteryKey) as? Int
+    }
+
+    /// Cleared once replayed, so a later read of a genuinely-never-sleeping Mac
+    /// isn't overwritten by a stale value from months ago.
+    private func forgetRememberedSleepTimers() {
+        UserDefaults.standard.removeObject(forKey: Self.acKey)
+        UserDefaults.standard.removeObject(forKey: Self.batteryKey)
     }
 
     /// `sudo pmset -a disablesleep 1` keeps the Mac awake with the lid shut;
