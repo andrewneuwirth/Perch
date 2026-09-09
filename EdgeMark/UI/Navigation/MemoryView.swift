@@ -22,10 +22,8 @@ struct MemoryView: View {
                 Spacer()
                 PinButton()
                 HeaderIconButton(systemName: "arrow.clockwise", help: l10n["memory.resample"]) {
-                    Task { await model.refresh() }
+                    model.refreshNow()
                 }
-                .disabled(model.isSampling)
-                .opacity(model.isSampling ? 0.3 : 1)
             }
             .overlay {
                 Text(l10n["memory.title"])
@@ -35,30 +33,33 @@ struct MemoryView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 0) {
-                        systemSummary
+                        summary
                             .padding(.horizontal, 16)
                             .padding(.top, 14)
                             .padding(.bottom, 10)
 
                         Divider().padding(.horizontal, 12)
 
-                        ForEach(model.sample.apps) { app in
+                        ForEach(model.apps) { app in
                             appRow(app)
-                            if model.isExpanded(app.appName) {
+                            if model.isExpanded(app.name) {
                                 processList(for: app)
                             }
                         }
                         .padding(.vertical, 6)
 
-                        if model.sample.apps.isEmpty, model.hasSampled {
-                            Text(l10n["memory.nothingFound"])
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .padding(.vertical, 24)
+                        if model.apps.isEmpty, model.isSampling {
+                            HStack(spacing: 6) {
+                                ProgressView().controlSize(.small)
+                                Text(l10n["memory.sampling"])
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.vertical, 24)
                         }
 
-                        if model.sample.denied > 0 {
-                            Text(l10n.t("memory.denied", "\(model.sample.denied)"))
+                        if model.deniedCount > 0 {
+                            Text(l10n.t("memory.denied", "\(model.deniedCount)"))
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .multilineTextAlignment(.center)
@@ -78,16 +79,27 @@ struct MemoryView: View {
         .onDisappear { model.stop() }
     }
 
-    // MARK: - System summary
+    // MARK: - Summary
+
+    /// Used memory is normal and healthy on a Mac — a full bar is the OS doing
+    /// its job. Only the kernel's own pressure level colours this, never the
+    /// size of the number or the presence of swap.
+    private func tint(_ pressure: MemoryPressure) -> Color {
+        switch pressure {
+        case .normal: .accentColor
+        case .warning: .orange
+        case .critical: .red
+        }
+    }
 
     @ViewBuilder
-    private var systemSummary: some View {
-        if let s = model.system {
+    private var summary: some View {
+        if let s = model.snapshot {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(s.used.memorySizeString)
                         .font(.system(.title2, design: .rounded, weight: .semibold))
-                        .foregroundStyle(s.isUnderPressure ? Color.red : Color.primary)
+                        .foregroundStyle(s.pressure == .normal ? Color.primary : tint(s.pressure))
                     Text(l10n["memory.used"])
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -101,10 +113,10 @@ struct MemoryView: View {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.glassInset)
                         Capsule()
-                            .fill(s.isUnderPressure ? Color.red : Color.accentColor)
+                            .fill(tint(s.pressure))
                             .frame(width: max(geo.size.width * s.usedFraction, 4))
-                        // Compressed memory rides on the same scale — when this
-                        // band grows the machine is running out of room.
+                        // Compressed memory on the same scale — the band that
+                        // actually grows when the machine runs out of room.
                         if s.compressed > 0, s.total > 0 {
                             Capsule()
                                 .fill(Color.orange.opacity(0.85))
@@ -119,15 +131,18 @@ struct MemoryView: View {
                     Text(breakdown(s))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
-                    if model.isSampling {
-                        ProgressView().controlSize(.mini)
-                    }
+                }
+
+                if s.pressure != .normal {
+                    Text(l10n[s.pressure == .critical ? "memory.pressure.critical" : "memory.pressure.warning"])
+                        .font(.caption)
+                        .foregroundStyle(tint(s.pressure))
                 }
             }
         }
     }
 
-    private func breakdown(_ s: MemoryUsageModel.SystemMemory) -> String {
+    private func breakdown(_ s: MemorySnapshot) -> String {
         var parts = [
             l10n.t("memory.breakdown.app", s.app.memorySizeString),
             l10n.t("memory.breakdown.wired", s.wired.memorySizeString),
@@ -143,15 +158,15 @@ struct MemoryView: View {
 
     private func appRow(_ app: AppMemory) -> some View {
         MemoryRowView(
-            name: app.appName,
+            name: app.name,
             detail: app.isExpandable ? l10n.t("memory.processCount", "\(app.processes.count)") : nil,
             footprint: app.footprint,
             icon: "app.dashed",
             iconWidth: iconWidth,
             indent: 0,
             isExpandable: app.isExpandable,
-            isExpanded: model.isExpanded(app.appName),
-            onTap: { if app.isExpandable { model.toggleExpanded(app.appName) } },
+            isExpanded: model.isExpanded(app.name),
+            onTap: { if app.isExpandable { model.toggleExpanded(app.name) } },
         )
     }
 
@@ -231,7 +246,7 @@ private struct MemoryRowView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(!isExpandable && indent > 0)
+            .disabled(!isExpandable)
 
             Color.clear.frame(width: 24, height: 24)
         }

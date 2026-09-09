@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// "Links" section at the top of Home. Always present; collapsible; the chevron state is remembered.
 struct LinksSectionView: View {
@@ -9,6 +10,7 @@ struct LinksSectionView: View {
     private var store = FavoritesStore.shared
 
     @State private var editingID: UUID?
+    @State private var draggingID: UUID?
     @State private var editText = ""
     @State private var isHeaderHovered = false
     @FocusState private var titleFocused: Bool
@@ -97,6 +99,20 @@ struct LinksSectionView: View {
                                 editLabel: l10n["favorites.editTitle"],
                                 deleteLabel: l10n["common.delete"],
                             )
+                            // The row being carried dims in place, so the gap
+                            // shows where it will land.
+                            .opacity(draggingID == fav.id ? 0.35 : 1)
+                            .onDrag {
+                                draggingID = fav.id
+                                // Carry the URL too, so dragging a link out of
+                                // Perch still drops a usable link elsewhere.
+                                return NSItemProvider(object: fav.url as NSURL)
+                            }
+                            .onDrop(of: [.url, .text], delegate: LinkReorderDrop(
+                                targetIndex: index,
+                                draggingID: $draggingID,
+                                store: store,
+                            ))
                         }
                     }
                     .padding(.horizontal, 8)
@@ -105,4 +121,34 @@ struct LinksSectionView: View {
             }
         }
     }
+}
+
+/// Reorders as the drag crosses each row rather than only on release, so the
+/// list settles under the cursor and the drop is a confirmation, not a guess.
+private struct LinkReorderDrop: DropDelegate {
+    let targetIndex: Int
+    @Binding var draggingID: UUID?
+    let store: FavoritesStore
+
+    /// Only our own rows reorder the list; a URL dragged in from Safari is not
+    /// a reorder, and is left for the add flow to handle.
+    func validateDrop(info: DropInfo) -> Bool { draggingID != nil }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: draggingID == nil ? .cancel : .move)
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let id = draggingID else { return }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            store.move(id: id, to: targetIndex)
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingID = nil
+        return true
+    }
+
+    func dropExited(info: DropInfo) {}
 }

@@ -44,3 +44,31 @@ enum FavoriteURL {
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 }
+
+/// Reordering rules for the links list. Pure so drag-to-reorder and the
+/// Move Up / Move Down menu items share one definition of "moved", and so the
+/// edge cases can be pinned by tests rather than discovered by dragging.
+enum FavoriteOrder {
+
+    /// Put the item with `id` at `index`, clamped into range. Unknown ids and
+    /// no-op moves return the list untouched, so callers can compare and skip
+    /// a pointless write to disk.
+    static func moved(_ items: [Favorite], id: UUID, to index: Int) -> [Favorite] {
+        guard let from = items.firstIndex(where: { $0.id == id }) else { return items }
+        let to = max(0, min(index, items.count - 1))
+        guard from != to else { return items }
+        var out = items
+        out.insert(out.remove(at: from), at: to)
+        return out
+    }
+
+    /// One step up (-1) or down (+1). Stops at the ends rather than wrapping.
+    static func moved(_ items: [Favorite], id: UUID, by direction: Int) -> [Favorite] {
+        guard let from = items.firstIndex(where: { $0.id == id }) else { return items }
+        let to = from + direction
+        guard items.indices.contains(to) else { return items }
+        var out = items
+        out.swapAt(from, to)
+        return out
+    }
+}

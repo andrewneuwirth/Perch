@@ -11,9 +11,10 @@ let package = Package(
         .target(name: "FavoritesCore", path: "EdgeMark/Core/Favorites"),
         .target(name: "MemoryCore", path: "EdgeMark/Core/Memory"),
         .target(name: "PanelGeometryCore", path: "EdgeMark/Core/PanelGeometry"),
+        .target(name: "PowerCore", path: "EdgeMark/Core/Power", exclude: ["PowerModel.swift"]),
         .testTarget(
             name: "EdgeMarkCoreTests",
-            dependencies: ["ChecklistCore", "FavoritesCore", "MemoryCore", "PanelGeometryCore"],
+            dependencies: ["ChecklistCore", "FavoritesCore", "MemoryCore", "PanelGeometryCore", "PowerCore"],
             path: "Tests/EdgeMarkCoreTests",
         ),
     ],

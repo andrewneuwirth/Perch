@@ -64,10 +64,18 @@ final class FavoritesStore {
 
     /// direction: -1 = up, +1 = down
     func move(id: UUID, direction: Int) {
-        guard let i = items.firstIndex(where: { $0.id == id }) else { return }
-        let target = i + direction
-        guard items.indices.contains(target) else { return }
-        items.swapAt(i, target)
+        apply(FavoriteOrder.moved(items, id: id, by: direction))
+    }
+
+    /// Drop `id` at `index`. Used by drag-to-reorder, which calls this on every
+    /// row the drag crosses — hence the no-op guard in `apply`.
+    func move(id: UUID, to index: Int) {
+        apply(FavoriteOrder.moved(items, id: id, to: index))
+    }
+
+    private func apply(_ reordered: [Favorite]) {
+        guard reordered != items else { return }
+        items = reordered
         save()
     }
 

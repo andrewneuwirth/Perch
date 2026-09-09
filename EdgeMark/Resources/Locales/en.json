@@ -326,6 +326,8 @@
   "memory.breakdown.swap": "{0} swap",
   "memory.processCount": "{0} processes",
   "memory.pid": "PID {0}",
-  "memory.nothingFound": "No process would say what it’s using.",
+  "memory.sampling": "Sampling…",
+  "memory.pressure.warning": "The system is under memory pressure — apps may start to feel slow.",
+  "memory.pressure.critical": "Memory pressure is critical. Quitting something large would help.",
   "memory.denied": "{0} processes belong to another user. macOS won’t report their memory to an unprivileged app, so they’re left out rather than guessed at."
 }

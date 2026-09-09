@@ -148,10 +148,20 @@ struct ChecklistItemDetailView: View {
                 withAnimation(.easeInOut(duration: 0.15)) { draft.links.removeAll { $0.id == link.id } }
                 push()
             },
+            onMoveUp: draft.links.first?.id == link.id ? nil : { moveLink(link.id, by: -1) },
+            onMoveDown: draft.links.last?.id == link.id ? nil : { moveLink(link.id, by: 1) },
             copyLabel: l10n["checklist.copyLink"],
             editLabel: l10n["checklist.editLabel"],
             deleteLabel: l10n["common.delete"],
         )
+    }
+
+    private func moveLink(_ id: UUID, by direction: Int) {
+        guard let from = draft.links.firstIndex(where: { $0.id == id }) else { return }
+        let to = from + direction
+        guard draft.links.indices.contains(to) else { return }
+        withAnimation(.easeInOut(duration: 0.15)) { draft.links.swapAt(from, to) }
+        push()
     }
 
     private func beginAddLink() {
